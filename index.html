@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0F3D2E">
+<meta name="theme-color" content="#E30613">
 <title>Coach U12 B1 — Grez HC</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -11,16 +11,19 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{
+  --club:#E30613;        /* rouge du blason */
+  --club-dark:#A80610;   /* même rouge assombri : texte blanc lisible dessus */
+  --slate:#59716F;       /* gris-vert du bandeau du logo */
   --turf:#2E7D63;
   --turf-dark:#0F3D2E;
   --line:rgba(255,255,255,.72);
   --ink:#10201B;
-  --ink-soft:#5B6E67;
+  --ink-soft:#59716F;
   --surface:#FFFFFF;
   --page:#EDF1EF;
   --ball:#F2C230;
-  --us:#1B4FA0;
-  --them:#B4342A;
+  --us:#A80610;
+  --them:#33403F;
   --stroke:#D3DBD7;
   --radius:14px;
   font-synthesis-weight:none;
@@ -39,22 +42,24 @@ button{cursor:pointer}
 
 /* ---------- Chrome ---------- */
 header{
-  background:var(--turf-dark);color:#fff;
+  background:var(--club);
+  display:flex;align-items:center;gap:12px;color:#fff;
   padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;
   position:sticky;top:0;z-index:30;
 }
+#logo{width:42px;height:42px;flex:none;object-fit:contain;background:#fff;border-radius:10px;padding:3px}
 header h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
 header p{margin:2px 0 0;font-size:12.5px;opacity:.72}
 
 nav.main{
-  display:flex;background:var(--turf-dark);position:sticky;top:0;z-index:29;
+  display:flex;background:var(--club);position:sticky;top:0;z-index:29;
   padding:0 8px 8px;gap:6px;
 }
 nav.main button{
   flex:1;background:rgba(255,255,255,.10);color:#fff;border:0;
   padding:9px 4px;border-radius:10px;font-size:14px;font-weight:600;
 }
-nav.main button[aria-selected="true"]{background:#fff;color:var(--turf-dark)}
+nav.main button[aria-selected="true"]{background:#fff;color:var(--club)}
 
 nav.sub{
   display:flex;gap:6px;overflow-x:auto;padding:10px 12px;
@@ -66,7 +71,7 @@ nav.sub button{
   white-space:nowrap;border:1px solid var(--stroke);background:var(--page);
   padding:7px 13px;border-radius:999px;font-size:14px;font-weight:600;color:var(--ink-soft);
 }
-nav.sub button[aria-selected="true"]{background:var(--turf);border-color:var(--turf);color:#fff}
+nav.sub button[aria-selected="true"]{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
 
 main{padding:14px 12px 40px;max-width:640px;margin:0 auto}
 section[hidden]{display:none}
@@ -74,12 +79,12 @@ section[hidden]{display:none}
 .card{background:var(--surface);border-radius:var(--radius);padding:14px;margin-bottom:12px;border:1px solid var(--stroke)}
 .rowbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .rowbar h2{margin:0;font-size:16px;font-weight:650;flex:1}
-.count{background:var(--turf);color:#fff;border-radius:999px;padding:3px 11px;font-size:14px;font-weight:700}
-.count.warn{background:var(--them)}
+.count{background:var(--club-dark);color:#fff;border-radius:999px;padding:3px 11px;font-size:14px;font-weight:700}
+.count.warn{background:var(--slate)}
 .btn{border:1px solid var(--stroke);background:var(--surface);border-radius:10px;padding:9px 13px;font-size:14px;font-weight:600}
-.btn.primary{background:var(--turf);border-color:var(--turf);color:#fff}
+.btn.primary{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
 .btn.ghost{background:transparent}
-.btn.danger{color:var(--them);border-color:#e6c6c3}
+.btn.danger{color:var(--club-dark);border-color:#efc3cb}
 .btn:active{transform:translateY(1px)}
 .muted{color:var(--ink-soft);font-size:13.5px}
 
@@ -93,12 +98,12 @@ ul.players li:last-child{border-bottom:0}
   width:38px;height:38px;flex:none;border-radius:10px;display:grid;place-items:center;
   background:var(--page);font-weight:700;font-size:15px;color:var(--ink-soft);border:1px solid var(--stroke);
 }
-li.present .jersey{background:var(--turf);color:#fff;border-color:var(--turf)}
+li.present .jersey{background:var(--club-dark);color:#fff;border-color:var(--club-dark)}
 .pname{flex:1;font-weight:600}
 li:not(.present) .pname{color:var(--ink-soft);font-weight:500}
 .switch{width:52px;height:31px;border-radius:999px;background:#CBD5D0;border:0;position:relative;flex:none;transition:background .15s}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-li.present .switch{background:var(--turf)}
+li.present .switch{background:var(--club-dark)}
 li.present .switch::after{transform:translateX(21px)}
 .icon-btn{border:0;background:none;padding:6px;color:var(--ink-soft);font-size:17px}
 
@@ -152,8 +157,11 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 <body>
 
 <header>
-  <h1>Coach U12 B1 — Grez HC</h1>
-  <p id="hdr-sub">Présences, compositions et PC</p>
+  <img id="logo" src="logo.png" alt="Grez HC" onerror="this.remove()">
+  <div>
+    <h1>Coach U12 B1 — Grez HC</h1>
+    <p id="hdr-sub">Présences, compositions et PC</p>
+  </div>
 </header>
 
 <nav class="main" role="tablist">
@@ -226,7 +234,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button data-mode="run" aria-pressed="false">Course</button>
         <button data-mode="erase" aria-pressed="false">Gomme</button>
       </div>
-      <svg class="board" id="board" viewBox="0 0 550 250" xmlns="http://www.w3.org/2000/svg">
+      <svg class="board" id="board" viewBox="0 0 550 300" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="#fff"/>
@@ -244,7 +252,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button id="btn-undo">Annuler le trait</button>
         <button id="btn-clear-pc">Tout effacer</button>
       </div>
-      <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer.</p>
+      <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Touche une flèche pour changer le mot écrit dessus. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
     </div>
     <div class="card">
       <div class="rowbar"><h2>Consignes</h2></div>
@@ -545,7 +553,7 @@ function openPicker(key, pos, count){
   if(current){
     const b = document.createElement('button');
     b.textContent = '✕  Libérer ce poste';
-    b.style.color = 'var(--them)';
+    b.style.color = 'var(--club-dark)';
     b.addEventListener('click', ()=>{ delete compo.slots[key]; save(); picker.close(); render(); });
     body.appendChild(b);
   }
@@ -611,7 +619,9 @@ function flash(msg){
 /* ==================================================================
    Onglet PC
 ================================================================== */
-const BOARD_W = 550, GOAL_X = 275, BACK_Y = 30, POST = 18.3, R = 146;
+const BOARD_W = 550, GOAL_X = 275, BACK_Y = 55, POST = 18.3, R = 146;
+const CAGE_W = 130, CAGE_D = 46;   // but dessiné agrandi : 5 jetons doivent y tenir
+const TOK_R = 13;
 let pcMode = 'move';
 
 document.querySelectorAll('#pc-modes button').forEach(b=>{
@@ -623,13 +633,20 @@ document.querySelectorAll('#pc-modes button').forEach(b=>{
 
 function drawPitchLines(){
   const g = document.getElementById('pitch-lines');
+  const top = BACK_Y - CAGE_D;
+  let net = '';
+  for(let x = GOAL_X - CAGE_W/2 + 13; x < GOAL_X + CAGE_W/2; x += 13){
+    net += `<line x1="${x}" y1="${top}" x2="${x}" y2="${BACK_Y}" stroke="rgba(255,255,255,.28)" stroke-width="1"/>`;
+  }
   g.innerHTML = `
+    <rect x="${GOAL_X-CAGE_W/2}" y="${top}" width="${CAGE_W}" height="${CAGE_D}" fill="rgba(255,255,255,.12)"/>
+    ${net}
+    <rect x="${GOAL_X-CAGE_W/2}" y="${top}" width="${CAGE_W}" height="${CAGE_D}" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="3"/>
     <line x1="0" y1="${BACK_Y}" x2="${BOARD_W}" y2="${BACK_Y}" stroke="rgba(255,255,255,.75)" stroke-width="2.5"/>
     <path d="M ${GOAL_X-POST-R},${BACK_Y} A ${R},${R} 0 0 0 ${GOAL_X-POST},${BACK_Y+R} L ${GOAL_X+POST},${BACK_Y+R} A ${R},${R} 0 0 0 ${GOAL_X+POST+R},${BACK_Y}"
           fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2.5"/>
     <path d="M ${GOAL_X-POST-R-50},${BACK_Y} A ${R+50},${R+50} 0 0 0 ${GOAL_X-POST},${BACK_Y+R+50} L ${GOAL_X+POST},${BACK_Y+R+50} A ${R+50},${R+50} 0 0 0 ${GOAL_X+POST+R+50},${BACK_Y}"
           fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-dasharray="7 9"/>
-    <rect x="${GOAL_X-POST}" y="${BACK_Y-16}" width="${POST*2}" height="16" fill="rgba(255,255,255,.9)"/>
     <circle cx="${GOAL_X-91}" cy="${BACK_Y}" r="4" fill="#fff"/>
     <circle cx="${GOAL_X+91}" cy="${BACK_Y}" r="4" fill="#fff"/>
   `;
@@ -643,19 +660,36 @@ function renderPC(){
 
   const shapesG = document.getElementById('shapes');
   shapesG.innerHTML = d.shapes.map(s=>{
+    const col = s.type==='pass' ? '#F2C230' : '#ffffff';
     const dash = s.type==='pass' ? 'stroke-dasharray="9 7"' : '';
-    return `<line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
-            stroke="${s.type==='pass' ? '#F2C230' : '#ffffff'}" stroke-width="3.5" ${dash}
-            marker-end="url(#ah)" stroke-linecap="round"/>`;
+    const txt = s.label || (s.type==='pass' ? 'passe' : 'course');
+    const dx = s.x2-s.x1, dy = s.y2-s.y1;
+    const rad = Math.atan2(dy, dx);
+    let deg = rad*180/Math.PI;
+    const flip = deg>90 || deg<-90;
+    if(flip) deg += 180;
+    const sign = flip ? -1 : 1;
+    const tx = s.x1 + dx*0.45 + Math.sin(rad)*11*sign;
+    const ty = s.y1 + dy*0.45 - Math.cos(rad)*11*sign;
+    const long = Math.hypot(dx,dy) > 46;
+    return `
+      <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+            stroke="transparent" stroke-width="20" stroke-linecap="round"/>
+      <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+            stroke="${col}" stroke-width="3.5" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
+      ${long ? `<text x="${tx}" y="${ty}" transform="rotate(${deg.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})"
+            text-anchor="middle" font-size="12" fill="${col}"
+            stroke="rgba(0,0,0,.55)" stroke-width="3.5" style="paint-order:stroke"
+            >${escapeHtml(txt)}</text>` : ''}`;
   }).join('');
 
   const tokG = document.getElementById('tokens');
   tokG.innerHTML = d.tokens.map(t=>{
-    const fill = t.team==='them' ? 'var(--them)' : (t.team==='gk' ? 'var(--ball)' : 'var(--us)');
+    const fill = t.team==='them' ? '#33403F' : (t.team==='gk' ? '#F2C230' : '#A80610');
     const fg = t.team==='gk' ? '#221B00' : '#fff';
     return `<g data-tid="${t.id}" style="cursor:grab">
-      <circle cx="${t.x}" cy="${t.y}" r="17" fill="${fill}" stroke="#fff" stroke-width="2.5"/>
-      <text x="${t.x}" y="${t.y+5}" text-anchor="middle" font-size="14" fill="${fg}">${escapeHtml(t.label).slice(0,4)}</text>
+      <circle cx="${t.x}" cy="${t.y}" r="${TOK_R}" fill="${fill}" stroke="#fff" stroke-width="2"/>
+      <text x="${t.x}" y="${t.y+4}" text-anchor="middle" font-size="11" fill="${fg}">${escapeHtml(t.label).slice(0,4)}</text>
     </g>`;
   }).join('');
 }
@@ -687,7 +721,10 @@ board.addEventListener('pointerdown', e=>{
   }
 
   if(pcMode==='move'){
-    if(!tokenEl) return;
+    if(!tokenEl){
+      if(shapeEl) labelShape(d.shapes.find(x=>x.id===shapeEl.dataset.sid));
+      return;
+    }
     const t = d.tokens.find(x=>x.id===tokenEl.dataset.tid);
     const p = toSvg(e);
     drag = {t, dx:t.x-p.x, dy:t.y-p.y, moved:false};
@@ -712,8 +749,8 @@ board.addEventListener('pointermove', e=>{
   if(!drag) return;
   const p = toSvg(e);
   if(drag.t){
-    drag.t.x = Math.max(20, Math.min(BOARD_W-20, p.x+drag.dx));
-    drag.t.y = Math.max(14, Math.min(236, p.y+drag.dy));
+    drag.t.x = Math.max(TOK_R+2, Math.min(BOARD_W-TOK_R-2, p.x+drag.dx));
+    drag.t.y = Math.max(TOK_R-3, Math.min(288-TOK_R, p.y+drag.dy));
     drag.moved = true;
     renderPC();
   } else if(tempLine){
@@ -737,6 +774,15 @@ board.addEventListener('pointerup', e=>{
   }
   drag = null; tempLine = null;
 });
+
+function labelShape(s){
+  if(!s) return;
+  const def = s.type==='pass' ? 'passe' : 'course';
+  const v = prompt('Texte écrit le long de la flèche.\nLaisse vide pour revenir à « '+def+' ».', s.label || def);
+  if(v===null) return;
+  if(v.trim()==='' || v.trim()===def) delete s.label; else s.label = v.trim();
+  save(); renderPC();
+}
 
 function renameToken(t){
   const v = prompt('Nom du jeton (4 caractères max affichés). Laisse vide pour le supprimer.', t.label);
@@ -788,26 +834,28 @@ document.getElementById('btn-preset').addEventListener('click', ()=>{
   if(d.tokens.length && !confirm('Remplacer les jetons déjà placés ?')) return;
   d.tokens = [];
   const T = (label,team,x,y)=>d.tokens.push({id:uid(),label,team,x,y});
+  const LINE = BACK_Y - CAGE_D/2;                 // rangée dans le but
+  const P = i => GOAL_X + i*26;                   // 5 places : -2 -1 0 +1 +2
   if(b.side==='atk'){
-    T('Inj','us', GOAL_X-91, BACK_Y+6);
-    T('Stop','us', GOAL_X-6, BACK_Y+R-8);
-    T('Tir','us', GOAL_X+34, BACK_Y+R+4);
-    T('RebG','us', GOAL_X-70, BACK_Y+90);
-    T('RebD','us', GOAL_X+80, BACK_Y+90);
-    T('GK','them', GOAL_X, BACK_Y+18);
-    T('S1','them', GOAL_X-24, BACK_Y+24);
-    T('S2','them', GOAL_X+24, BACK_Y+24);
-    T('PG','them', GOAL_X-16, BACK_Y+14);
-    T('PD','them', GOAL_X+16, BACK_Y+14);
+    T('Inj','us', GOAL_X-91, BACK_Y-14);
+    T('Stop','us', GOAL_X-8, BACK_Y+R-6);
+    T('Tir','us', GOAL_X+30, BACK_Y+R+8);
+    T('RebG','us', GOAL_X-72, BACK_Y+95);
+    T('RebD','us', GOAL_X+72, BACK_Y+95);
+    T('PG','them', P(-2), LINE);
+    T('S1','them', P(-1), LINE);
+    T('GK','them', P(0),  LINE);
+    T('S2','them', P(1),  LINE);
+    T('PD','them', P(2),  LINE);
   }else{
-    T('GK','gk', GOAL_X, BACK_Y+20);
-    T('S1','us', GOAL_X-14, BACK_Y+26);
-    T('S2','us', GOAL_X+14, BACK_Y+26);
-    T('PG','us', GOAL_X-POST+4, BACK_Y+10);
-    T('PD','us', GOAL_X+POST-4, BACK_Y+10);
-    T('Inj','them', GOAL_X+91, BACK_Y+6);
-    T('Stop','them', GOAL_X-6, BACK_Y+R-8);
-    T('Tir','them', GOAL_X+34, BACK_Y+R+4);
+    T('PG','us', P(-2), LINE);
+    T('S1','us', P(-1), LINE);
+    T('GK','gk', P(0),  LINE);
+    T('S2','us', P(1),  LINE);
+    T('PD','us', P(2),  LINE);
+    T('Inj','them', GOAL_X+91, BACK_Y-14);
+    T('Stop','them', GOAL_X-8, BACK_Y+R-6);
+    T('Tir','them', GOAL_X+30, BACK_Y+R+8);
   }
   save(); renderPC();
 });

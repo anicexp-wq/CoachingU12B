@@ -116,7 +116,7 @@ li.present .switch::after{transform:translateX(21px)}
   border:2px solid rgba(255,255,255,.35);
 }
 .slot{
-  position:absolute;transform:translate(-50%,-50%);width:72px;text-align:center;
+  position:absolute;transform:translate(-50%,-50%);touch-action:none;width:72px;text-align:center;
   background:none;border:0;padding:0;color:#fff;
 }
 .disc{
@@ -268,6 +268,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       <div class="rowbar" style="margin:8px 0 0">
         <button class="btn" id="btn-save-compo">Enregistrer la compo</button>
         <button class="btn" id="btn-load-compo">Charger une compo</button>
+        <button class="btn ghost" id="btn-reset-pos">Replacer les postes</button>
       </div>
     </div>
     <div class="card" id="card-bench">
@@ -368,6 +369,7 @@ function migrate(s){
     s.compos[i] = s.compos[i] || {name:'Compo '+(i+1), slots:{}};
     s.compos[i].slots = s.compos[i].slots || {};
     s.compos[i].shapes = s.compos[i].shapes || [];
+  s.compos[i].pos = s.compos[i].pos || {};
   }
   s.strategies = s.strategies || [null,null,null,null,null];
   s.compoSaves = s.compoSaves || [null,null,null,null,null];
@@ -646,12 +648,39 @@ function renderCompo(){
 
       const btn = document.createElement('button');
       btn.className = 'slot' + (p?' filled':'') + (pos.code==='GK'?' gk':'');
-      btn.style.left = pos.xs[i]+'%';
-      btn.style.top = pos.y+'%';
+      const custom = compo.pos && compo.pos[key];
+      btn.style.left = (custom ? custom.x : pos.xs[i])+'%';
+      btn.style.top  = (custom ? custom.y : pos.y)+'%';
       btn.innerHTML =
         '<span class="disc">'+(p ? (p.num || initials(p.name)) : '+')+'</span>' +
         '<span class="lbl">'+(p ? escapeHtml(shortName(p.name)) : pos.label)+'</span>';
-      btn.addEventListener('click', ()=>openPicker(key, pos, onFieldCount()));
+
+      btn.addEventListener('pointerdown', e=>{
+        if(compoMode!=='squad' || compoPlaying) return;
+        const rect = pitch.getBoundingClientRect();
+        const x0 = e.clientX, y0 = e.clientY;
+        let moved = false;
+        btn.setPointerCapture(e.pointerId);
+        const onMove = ev=>{
+          if(!moved && Math.hypot(ev.clientX-x0, ev.clientY-y0) < 8) return;
+          moved = true;
+          btn.style.left = Math.max(3, Math.min(97, (ev.clientX-rect.left)/rect.width*100))+'%';
+          btn.style.top  = Math.max(2, Math.min(98, (ev.clientY-rect.top)/rect.height*100))+'%';
+        };
+        const onUp = ()=>{
+          btn.removeEventListener('pointermove', onMove);
+          btn.removeEventListener('pointerup', onUp);
+          if(moved){
+            compo.pos = compo.pos || {};
+            compo.pos[key] = {x: parseFloat(btn.style.left), y: parseFloat(btn.style.top)};
+            save();
+          }else{
+            openPicker(key, pos, onFieldCount());
+          }
+        };
+        btn.addEventListener('pointermove', onMove);
+        btn.addEventListener('pointerup', onUp);
+      });
       pitch.appendChild(btn);
     }
   });
@@ -895,7 +924,8 @@ function openCompoSaveDialog(mode){
             name: name.trim().slice(0,24),
             date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
             slots: JSON.parse(JSON.stringify(compo.slots)),
-            shapes: JSON.parse(JSON.stringify(compo.shapes || []))
+            shapes: JSON.parse(JSON.stringify(compo.shapes || [])),
+            pos: JSON.parse(JSON.stringify(compo.pos || {}))
           };
         }
         save(); picker.close();
@@ -904,6 +934,7 @@ function openCompoSaveDialog(mode){
         if(!confirm('Remplacer « '+compo.name+' » par « '+s.name+' » ?')) return;
         compo.slots  = JSON.parse(JSON.stringify(s.slots));
         compo.shapes = JSON.parse(JSON.stringify(s.shapes || []));
+        compo.pos    = JSON.parse(JSON.stringify(s.pos || {}));
         save(); picker.close(); render();
       }
     });
@@ -913,6 +944,11 @@ function openCompoSaveDialog(mode){
 }
 document.getElementById('btn-save-compo').addEventListener('click', ()=>openCompoSaveDialog('save'));
 document.getElementById('btn-load-compo').addEventListener('click', ()=>openCompoSaveDialog('load'));
+
+document.getElementById('btn-reset-pos').addEventListener('click', ()=>{
+  state.compos[compoIndex].pos = {};
+  save(); render(); flash('Postes remis en place');
+});
 
 document.getElementById('btn-undo-compo').addEventListener('click', ()=>{
   state.compos[compoIndex].shapes.pop();
@@ -934,6 +970,7 @@ document.getElementById('btn-dup-compo').addEventListener('click', ()=>{
       if(n && !confirm('Écraser « ' + c.name + ' » ?')) return;
       c.slots  = JSON.parse(JSON.stringify(src.slots));
       c.shapes = JSON.parse(JSON.stringify(src.shapes || []));
+      c.pos    = JSON.parse(JSON.stringify(src.pos || {}));
       save(); picker.close();
       compoIndex = i;            // on bascule sur la copie, prête à être retouchée
       render();
@@ -952,6 +989,7 @@ document.getElementById('btn-clear-compo').addEventListener('click', ()=>{
   if(confirm('Vider '+state.compos[compoIndex].name+' ?')){
     state.compos[compoIndex].slots = {};
     state.compos[compoIndex].shapes = [];
+    state.compos[compoIndex].pos = {};
     save(); render();
   }
 });

@@ -196,6 +196,10 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button class="btn" id="btn-export">Exporter</button>
         <button class="btn" id="btn-import">Importer</button>
       </div>
+      <p class="muted" style="margin:14px 0 0">Version installée : <strong id="app-version">?</strong>. Si une nouveauté n'apparaît pas, recharge la dernière version publiée.</p>
+      <div class="rowbar" style="margin:8px 0 0">
+        <button class="btn" id="btn-update">Recharger la dernière version</button>
+      </div>
     </div>
   </section>
 
@@ -272,6 +276,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
    État + stockage
 ================================================================== */
 const KEY = 'grezhc-u12b1-coach-v1';
+const APP_VERSION = '6 — tri alphabétique';
 const uid = () => Math.random().toString(36).slice(2,9);
 const POSITIONS = [
   {code:'ATT', label:'Attaque',  n:3, y:15, xs:[24,50,76]},
@@ -888,6 +893,21 @@ function render(){
 }
 drawPitchLines();
 render();
+
+document.getElementById('app-version').textContent = APP_VERSION;
+document.getElementById('btn-update').addEventListener('click', async ()=>{
+  try{
+    if('caches' in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+    if(navigator.serviceWorker){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+  }catch(e){}
+  location.reload();
+});
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('service-worker.js').catch(()=>{});

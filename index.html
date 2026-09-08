@@ -914,28 +914,25 @@ function openCompoSaveDialog(mode){
   if(mode==='load' && state.compoSaves.every(s=>!s)){
     body.innerHTML = '<p class="empty">Aucune composition enregistrée pour l\'instant.</p>';
   }
+  const today = ()=>new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'});
+
   state.compoSaves.forEach((s,i)=>{
     if(mode==='load' && !s) return;
+    const n = s ? Object.values(s.slots).filter(Boolean).length : 0;
     const b = document.createElement('button');
-    b.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
+    b.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date + '   ' + n + ' joueurs' : 'emplacement libre');
     if(!s) b.style.color = 'var(--ink-soft)';
     b.addEventListener('click', ()=>{
       if(mode==='save'){
-        const name = prompt('Nom de la composition.\nLaisse vide pour libérer cet emplacement.', s ? s.name : compo.name);
-        if(name===null) return;
-        if(name.trim()===''){
-          state.compoSaves[i] = null;
-        }else{
-          state.compoSaves[i] = {
-            name: name.trim().slice(0,24),
-            date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
-            slots: JSON.parse(JSON.stringify(compo.slots)),
-            shapes: JSON.parse(JSON.stringify(compo.shapes || [])),
-            pos: JSON.parse(JSON.stringify(compo.pos || {}))
-          };
-        }
-        save(); picker.close();
-        flash(name.trim()==='' ? 'Emplacement libéré' : 'Composition enregistrée');
+        if(s && !confirm('Écraser « ' + s.name + ' » ?')) return;
+        state.compoSaves[i] = {
+          name: compo.name,
+          date: today(),
+          slots: JSON.parse(JSON.stringify(compo.slots)),
+          shapes: JSON.parse(JSON.stringify(compo.shapes || [])),
+          pos: JSON.parse(JSON.stringify(compo.pos || {}))
+        };
+        save(); picker.close(); flash('Enregistré dans l\'emplacement ' + (i+1));
       }else{
         if(!confirm('Remplacer « '+compo.name+' » par « '+s.name+' » ?')) return;
         compo.slots  = JSON.parse(JSON.stringify(s.slots));
@@ -945,6 +942,18 @@ function openCompoSaveDialog(mode){
       }
     });
     body.appendChild(b);
+
+    if(mode==='save' && s){
+      const del = document.createElement('button');
+      del.textContent = '↳ libérer cet emplacement';
+      del.style.cssText = 'font-size:13px;font-weight:600;color:var(--ink-soft);padding-top:2px';
+      del.addEventListener('click', ()=>{
+        if(!confirm('Libérer l\'emplacement ' + (i+1) + ' ?')) return;
+        state.compoSaves[i] = null;
+        save(); picker.close(); flash('Emplacement libéré');
+      });
+      body.appendChild(del);
+    }
   });
   picker.showModal();
 }
@@ -1370,33 +1379,25 @@ function openStrategyDialog(mode){
   const body = document.getElementById('picker-body');
   head.textContent = mode==='save' ? 'Enregistrer la stratégie' : 'Charger une stratégie';
   body.innerHTML = '';
-
   if(mode==='load' && state.strategies.every(s=>!s)){
     body.innerHTML = '<p class="empty">Aucune stratégie enregistrée pour l\'instant.</p>';
   }
-
   state.strategies.forEach((s,i)=>{
     if(mode==='load' && !s) return;
-    const btn = document.createElement('button');
-    btn.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
-    if(!s) btn.style.color = 'var(--ink-soft)';
-    btn.addEventListener('click', ()=>{
+    const b = document.createElement('button');
+    b.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
+    if(!s) b.style.color = 'var(--ink-soft)';
+    b.addEventListener('click', ()=>{
       if(mode==='save'){
-        const name = prompt('Nom de la stratégie.\nLaisse vide pour libérer cet emplacement.', s ? s.name : board.title);
-        if(name===null) return;
-        if(name.trim()===''){
-          state.strategies[i] = null;
-        }else{
-          state.strategies[i] = {
-            name: name.trim().slice(0,24),
-            date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
-            tokens: JSON.parse(JSON.stringify(d.tokens)),
-            shapes: JSON.parse(JSON.stringify(d.shapes)),
-            notes: d.notes || ''
-          };
-        }
-        save(); picker.close();
-        flash(name.trim()==='' ? 'Emplacement libéré' : 'Stratégie enregistrée');
+        if(s && !confirm('Écraser « ' + s.name + ' » ?')) return;
+        state.strategies[i] = {
+          name: board.title,
+          date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
+          tokens: JSON.parse(JSON.stringify(d.tokens)),
+          shapes: JSON.parse(JSON.stringify(d.shapes)),
+          notes: d.notes || ''
+        };
+        save(); picker.close(); flash('Enregistré dans l\'emplacement ' + (i+1));
       }else{
         if(!confirm('Remplacer le schéma affiché par « '+s.name+' » ?')) return;
         d.tokens = JSON.parse(JSON.stringify(s.tokens));
@@ -1405,7 +1406,19 @@ function openStrategyDialog(mode){
         save(); picker.close(); renderPC();
       }
     });
-    body.appendChild(btn);
+    body.appendChild(b);
+
+    if(mode==='save' && s){
+      const del = document.createElement('button');
+      del.textContent = '↳ libérer cet emplacement';
+      del.style.cssText = 'font-size:13px;font-weight:600;color:var(--ink-soft);padding-top:2px';
+      del.addEventListener('click', ()=>{
+        if(!confirm('Libérer l\'emplacement ' + (i+1) + ' ?')) return;
+        state.strategies[i] = null;
+        save(); picker.close(); flash('Emplacement libéré');
+      });
+      body.appendChild(del);
+    }
   });
   picker.showModal();
 }

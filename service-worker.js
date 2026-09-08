@@ -1,6 +1,6 @@
 // Cache "network-first" : l'appli se met à jour dès qu'il y a du réseau,
 // et reste utilisable hors ligne au bord du terrain.
-const CACHE = 'grez-coach-v15';
+const CACHE = 'grez-coach-v17';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png'];
 
 self.addEventListener('install', e => {

@@ -254,13 +254,20 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <svg class="overlay" id="compo-svg" viewBox="0 0 550 914" xmlns="http://www.w3.org/2000/svg">
           <g id="compo-lines"></g>
           <g id="compo-shapes"></g>
+          <g id="compo-anim"></g>
         </svg>
       </div>
       <div class="rowbar" style="margin:12px 0 0">
+        <button class="btn" id="btn-dup-compo">Dupliquer vers…</button>
         <button class="btn" id="btn-rename-compo">Renommer</button>
         <button class="btn" id="btn-copy-compo">Copier le texte</button>
+        <button class="btn" id="btn-play-compo">Lecture</button>
         <button class="btn" id="btn-undo-compo">Annuler le trait</button>
         <button class="btn danger" id="btn-clear-compo">Vider</button>
+      </div>
+      <div class="rowbar" style="margin:8px 0 0">
+        <button class="btn" id="btn-save-compo">Enregistrer la compo</button>
+        <button class="btn" id="btn-load-compo">Charger une compo</button>
       </div>
     </div>
     <div class="card" id="card-bench">
@@ -363,6 +370,7 @@ function migrate(s){
     s.compos[i].shapes = s.compos[i].shapes || [];
   }
   s.strategies = s.strategies || [null,null,null,null,null];
+  s.compoSaves = s.compoSaves || [null,null,null,null,null];
   s.pc = s.pc || {};
   PC_BOARDS.forEach(b=>{
     s.pc[b.id] = s.pc[b.id] || {tokens:[], shapes:[], notes:''};
@@ -406,7 +414,8 @@ function renderNav(){
     b.textContent = it.label;
     b.setAttribute('aria-selected', String(it.i===active));
     b.addEventListener('click', ()=>{
-      if(view==='compos') compoIndex = it.i; else { playing = false; pcIndex = it.i; }
+      if(view==='compos'){ compoPlaying = false; compoIndex = it.i; }
+      else { playing = false; pcIndex = it.i; }
       render();
     });
     sub.appendChild(b);
@@ -759,6 +768,7 @@ document.querySelectorAll('#compo-modes button').forEach(b=>{
 
 let cdrag = null, ctemp = null;
 csvg.addEventListener('pointerdown', e=>{
+  if(compoPlaying) return;
   const compo = state.compos[compoIndex];
   const hit = e.target.closest('[data-sid]');
   if(compoMode==='erase'){
@@ -794,9 +804,144 @@ csvg.addEventListener('pointerup', ()=>{
   renderCompoShapes();
 });
 
+/* --- lecture animée d'une compo --- */
+let compoPlaying = false, compoRAF = null;
+
+function slotMover(m){
+  return (x,y)=>{
+    m.el.style.left = (x/CW*100)+'%';
+    m.el.style.top  = (y/CH*100)+'%';
+  };
+}
+function playCompo(){
+  if(compoPlaying){ compoPlaying = false; return; }
+  const compo = state.compos[compoIndex];
+  if(!compo.shapes.length){ flash('Trace d\'abord des flèches'); return; }
+
+  const btn = document.getElementById('btn-play-compo');
+  const anim = document.getElementById('compo-anim');
+  anim.innerHTML = '';
+  compoPlaying = true;
+  btn.textContent = 'Arrêter';
+
+  const movers = [];
+  document.querySelectorAll('#pitch .slot.filled').forEach(el=>{
+    movers.push({el, x: parseFloat(el.style.left)/100*CW, y: parseFloat(el.style.top)/100*CH});
+  });
+
+  let ball = null, i = 0;
+  const finish = ()=>{
+    compoPlaying = false;
+    if(compoRAF) cancelAnimationFrame(compoRAF);
+    btn.textContent = 'Lecture';
+    anim.innerHTML = '';
+    renderCompo();
+  };
+  const step = ()=>{
+    if(!compoPlaying) return finish();
+    if(i >= compo.shapes.length){ setTimeout(finish, 900); return; }
+    const s = compo.shapes[i++];
+    const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
+    const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.2));
+
+    let move = null;
+    if(s.type==='run'){
+      let best = null, bd = 130;   // le joueur le plus proche du départ de la flèche
+      movers.forEach(m=>{ const dd = Math.hypot(m.x-s.x1, m.y-s.y1); if(dd<bd){ bd=dd; best=m; } });
+      if(best) move = slotMover(best);
+    }else{
+      if(!ball) ball = makeBall(anim, s.x1, s.y1);
+      move = ball;
+      move(s.x1, s.y1);
+    }
+    const t0 = performance.now();
+    const frame = now =>{
+      if(!compoPlaying) return finish();
+      const k = Math.min(1, (now-t0)/dur);
+      const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+      if(move) move(s.x1 + (s.x2-s.x1)*e, s.y1 + (s.y2-s.y1)*e);
+      if(k < 1) compoRAF = requestAnimationFrame(frame);
+      else step();
+    };
+    compoRAF = requestAnimationFrame(frame);
+  };
+  step();
+}
+document.getElementById('btn-play-compo').addEventListener('click', playCompo);
+
+/* --- cinq compos enregistrées --- */
+function openCompoSaveDialog(mode){
+  const compo = state.compos[compoIndex];
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = mode==='save' ? 'Enregistrer la composition' : 'Charger une composition';
+  body.innerHTML = '';
+  if(mode==='load' && state.compoSaves.every(s=>!s)){
+    body.innerHTML = '<p class="empty">Aucune composition enregistrée pour l\'instant.</p>';
+  }
+  state.compoSaves.forEach((s,i)=>{
+    if(mode==='load' && !s) return;
+    const b = document.createElement('button');
+    b.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
+    if(!s) b.style.color = 'var(--ink-soft)';
+    b.addEventListener('click', ()=>{
+      if(mode==='save'){
+        const name = prompt('Nom de la composition.\nLaisse vide pour libérer cet emplacement.', s ? s.name : compo.name);
+        if(name===null) return;
+        if(name.trim()===''){
+          state.compoSaves[i] = null;
+        }else{
+          state.compoSaves[i] = {
+            name: name.trim().slice(0,24),
+            date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
+            slots: JSON.parse(JSON.stringify(compo.slots)),
+            shapes: JSON.parse(JSON.stringify(compo.shapes || []))
+          };
+        }
+        save(); picker.close();
+        flash(name.trim()==='' ? 'Emplacement libéré' : 'Composition enregistrée');
+      }else{
+        if(!confirm('Remplacer « '+compo.name+' » par « '+s.name+' » ?')) return;
+        compo.slots  = JSON.parse(JSON.stringify(s.slots));
+        compo.shapes = JSON.parse(JSON.stringify(s.shapes || []));
+        save(); picker.close(); render();
+      }
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+}
+document.getElementById('btn-save-compo').addEventListener('click', ()=>openCompoSaveDialog('save'));
+document.getElementById('btn-load-compo').addEventListener('click', ()=>openCompoSaveDialog('load'));
+
 document.getElementById('btn-undo-compo').addEventListener('click', ()=>{
   state.compos[compoIndex].shapes.pop();
   save(); renderCompoShapes();
+});
+
+document.getElementById('btn-dup-compo').addEventListener('click', ()=>{
+  const src = state.compos[compoIndex];
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Copier « ' + src.name + ' » vers…';
+  body.innerHTML = '';
+  state.compos.forEach((c,i)=>{
+    if(i===compoIndex) return;
+    const n = Object.values(c.slots).filter(Boolean).length;
+    const b = document.createElement('button');
+    b.textContent = c.name + '   ' + (n ? n+' joueurs placés' : 'vide');
+    b.addEventListener('click', ()=>{
+      if(n && !confirm('Écraser « ' + c.name + ' » ?')) return;
+      c.slots  = JSON.parse(JSON.stringify(src.slots));
+      c.shapes = JSON.parse(JSON.stringify(src.shapes || []));
+      save(); picker.close();
+      compoIndex = i;            // on bascule sur la copie, prête à être retouchée
+      render();
+      flash('Copié vers ' + c.name);
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
 });
 
 document.getElementById('btn-rename-compo').addEventListener('click', ()=>{

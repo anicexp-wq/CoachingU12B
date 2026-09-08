@@ -132,6 +132,9 @@ li.present .switch::after{transform:translateX(21px)}
 .slot .lbl{display:block;font-size:11.5px;margin-top:3px;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.2}
 .slot.filled .lbl{font-weight:650}
 
+.pitch .overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none}
+.pitch.drawing .overlay{pointer-events:auto}
+.pitch.drawing .slot{pointer-events:none}
 .bench{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
 .chip{background:var(--page);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
 
@@ -155,6 +158,12 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 </style>
 </head>
 <body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#fff"/>
+  </marker>
+</defs></svg>
 
 <header>
   <img id="logo" src="logo.png" alt="Grez HC" onerror="this.remove()">
@@ -206,14 +215,25 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <h2 id="compo-title">Compo 1</h2>
         <span class="count" id="field-count">0/8</span>
       </div>
+      <div class="tools" id="compo-modes">
+        <button data-cmode="squad" aria-pressed="true">Joueurs</button>
+        <button data-cmode="pass" aria-pressed="false">Passe</button>
+        <button data-cmode="run" aria-pressed="false">Course</button>
+        <button data-cmode="tir" aria-pressed="false">Tir</button>
+        <button data-cmode="erase" aria-pressed="false">Gomme</button>
+      </div>
       <div class="pitch" id="pitch">
         <div class="halfway"></div>
         <div class="arc"></div>
         <div class="goal"></div>
+        <svg class="overlay" id="compo-svg" viewBox="0 0 550 733" xmlns="http://www.w3.org/2000/svg">
+          <g id="compo-shapes"></g>
+        </svg>
       </div>
       <div class="rowbar" style="margin:12px 0 0">
         <button class="btn" id="btn-rename-compo">Renommer</button>
         <button class="btn" id="btn-copy-compo">Copier le texte</button>
+        <button class="btn" id="btn-undo-compo">Annuler le trait</button>
         <button class="btn danger" id="btn-clear-compo">Vider</button>
       </div>
     </div>
@@ -236,11 +256,6 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button data-mode="erase" aria-pressed="false">Gomme</button>
       </div>
       <svg class="board" id="board" viewBox="0 0 550 300" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M0,0 L10,5 L0,10 z" fill="#fff"/>
-          </marker>
-        </defs>
         <g id="pitch-lines"></g>
         <g id="shapes"></g>
         <g id="tokens"></g>
@@ -317,6 +332,7 @@ function migrate(s){
   for(let i=0;i<5;i++){
     s.compos[i] = s.compos[i] || {name:'Compo '+(i+1), slots:{}};
     s.compos[i].slots = s.compos[i].slots || {};
+    s.compos[i].shapes = s.compos[i].shapes || [];
   }
   s.strategies = s.strategies || [null,null,null,null,null];
   s.pc = s.pc || {};
@@ -522,6 +538,9 @@ function renderCompo(){
   c.textContent = onField+'/'+MAX_ON_FIELD;
   c.className = 'count' + (onField>MAX_ON_FIELD ? ' warn':'');
 
+  renderCompoShapes();
+  document.getElementById('pitch').classList.toggle('drawing', compoMode!=='squad');
+
   const bench = document.getElementById('bench');
   bench.innerHTML = '';
   const placed = new Set(Object.values(compo.slots));
@@ -585,13 +604,73 @@ function openPicker(key, pos, count){
   picker.showModal();
 }
 
+/* --- flèches sur le terrain des compos --- */
+let compoMode = 'squad';
+const csvg = document.getElementById('compo-svg');
+const CW = 550, CH = 733;
+
+function renderCompoShapes(){
+  renderShapes(document.getElementById('compo-shapes'), state.compos[compoIndex].shapes);
+}
+document.querySelectorAll('#compo-modes button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    compoMode = b.dataset.cmode;
+    document.querySelectorAll('#compo-modes button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    document.getElementById('pitch').classList.toggle('drawing', compoMode!=='squad');
+  });
+});
+
+let cdrag = null, ctemp = null;
+csvg.addEventListener('pointerdown', e=>{
+  const compo = state.compos[compoIndex];
+  const hit = e.target.closest('[data-sid]');
+  if(compoMode==='erase'){
+    if(hit){
+      compo.shapes = compo.shapes.filter(s=>s.id!==hit.dataset.sid);
+      save(); renderCompoShapes();
+    }
+    return;
+  }
+  if(hit){
+    labelShape(compo.shapes.find(s=>s.id===hit.dataset.sid), renderCompoShapes);
+    return;
+  }
+  const p = svgPoint(csvg, e);
+  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y};
+  ctemp = startTempLine(csvg, 'compo-shapes', compoMode, p);
+  csvg.setPointerCapture(e.pointerId);
+});
+csvg.addEventListener('pointermove', e=>{
+  if(!cdrag || !ctemp) return;
+  const p = svgPoint(csvg, e);
+  cdrag.x2 = Math.max(0, Math.min(CW, p.x));
+  cdrag.y2 = Math.max(0, Math.min(CH, p.y));
+  ctemp.setAttribute('x2', cdrag.x2); ctemp.setAttribute('y2', cdrag.y2);
+});
+csvg.addEventListener('pointerup', ()=>{
+  if(!cdrag) return;
+  if(Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18){
+    state.compos[compoIndex].shapes.push({id:uid(), type:compoMode, ...cdrag});
+    save();
+  }
+  cdrag = null; ctemp = null;
+  renderCompoShapes();
+});
+
+document.getElementById('btn-undo-compo').addEventListener('click', ()=>{
+  state.compos[compoIndex].shapes.pop();
+  save(); renderCompoShapes();
+});
+
 document.getElementById('btn-rename-compo').addEventListener('click', ()=>{
   const n = prompt('Nom de cette composition', state.compos[compoIndex].name);
   if(n && n.trim()){ state.compos[compoIndex].name = n.trim().slice(0,18); save(); render(); }
 });
 document.getElementById('btn-clear-compo').addEventListener('click', ()=>{
   if(confirm('Vider '+state.compos[compoIndex].name+' ?')){
-    state.compos[compoIndex].slots = {}; save(); render();
+    state.compos[compoIndex].slots = {};
+    state.compos[compoIndex].shapes = [];
+    save(); render();
   }
 });
 document.getElementById('btn-copy-compo').addEventListener('click', ()=>{
@@ -662,37 +741,59 @@ function drawPitchLines(){
   `;
 }
 
+function shapeMarkup(s){
+  const st = TRACE[s.type] || TRACE.run;
+  const dash = st.dash ? `stroke-dasharray="${st.dash}"` : '';
+  const txt = s.label || st.label;
+  const dx = s.x2-s.x1, dy = s.y2-s.y1;
+  const rad = Math.atan2(dy, dx);
+  let deg = rad*180/Math.PI;
+  const flip = deg>90 || deg<-90;
+  if(flip) deg += 180;
+  const sign = flip ? -1 : 1;
+  const tx = s.x1 + dx*0.45 + Math.sin(rad)*11*sign;
+  const ty = s.y1 + dy*0.45 - Math.cos(rad)*11*sign;
+  const long = Math.hypot(dx,dy) > 46;
+  return `
+    <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+          stroke="transparent" stroke-width="20" stroke-linecap="round"/>
+    <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+          stroke="${st.color}" stroke-width="${st.width}" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
+    ${long ? `<text x="${tx}" y="${ty}" transform="rotate(${deg.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})"
+          text-anchor="middle" font-size="12" fill="${st.color}"
+          stroke="rgba(0,0,0,.55)" stroke-width="3.5" style="paint-order:stroke"
+          >${escapeHtml(txt)}</text>` : ''}`;
+}
+function renderShapes(el, shapes){
+  el.innerHTML = shapes.map(shapeMarkup).join('');
+}
+function svgPoint(svgEl, evt){
+  const pt = svgEl.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const p = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+  return {x: Math.round(p.x), y: Math.round(p.y)};
+}
+function startTempLine(svgEl, groupId, mode, p){
+  const st = TRACE[mode] || TRACE.run;
+  const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('stroke', st.color);
+  l.setAttribute('stroke-width', st.width);
+  l.setAttribute('stroke-linecap','round');
+  if(st.dash) l.setAttribute('stroke-dasharray', st.dash);
+  l.setAttribute('marker-end','url(#ah)');
+  l.setAttribute('x1',p.x); l.setAttribute('y1',p.y);
+  l.setAttribute('x2',p.x); l.setAttribute('y2',p.y);
+  document.getElementById(groupId).appendChild(l);
+  return l;
+}
+
 function renderPC(){
   const b = PC_BOARDS[pcIndex];
   const d = state.pc[b.id];
   document.getElementById('pc-title').textContent = b.title;
   document.getElementById('pc-notes').value = d.notes || '';
 
-  const shapesG = document.getElementById('shapes');
-  shapesG.innerHTML = d.shapes.map(s=>{
-    const st = TRACE[s.type] || TRACE.run;
-    const col = st.color;
-    const dash = st.dash ? `stroke-dasharray="${st.dash}"` : '';
-    const txt = s.label || st.label;
-    const dx = s.x2-s.x1, dy = s.y2-s.y1;
-    const rad = Math.atan2(dy, dx);
-    let deg = rad*180/Math.PI;
-    const flip = deg>90 || deg<-90;
-    if(flip) deg += 180;
-    const sign = flip ? -1 : 1;
-    const tx = s.x1 + dx*0.45 + Math.sin(rad)*11*sign;
-    const ty = s.y1 + dy*0.45 - Math.cos(rad)*11*sign;
-    const long = Math.hypot(dx,dy) > 46;
-    return `
-      <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
-            stroke="transparent" stroke-width="20" stroke-linecap="round"/>
-      <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
-            stroke="${col}" stroke-width="${st.width}" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
-      ${long ? `<text x="${tx}" y="${ty}" transform="rotate(${deg.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})"
-            text-anchor="middle" font-size="12" fill="${col}"
-            stroke="rgba(0,0,0,.55)" stroke-width="3.5" style="paint-order:stroke"
-            >${escapeHtml(txt)}</text>` : ''}`;
-  }).join('');
+  renderShapes(document.getElementById('shapes'), d.shapes);
 
   const tokG = document.getElementById('tokens');
   tokG.innerHTML = d.tokens.map(t=>{
@@ -711,12 +812,7 @@ document.getElementById('pc-notes').addEventListener('input', e=>{
 });
 
 const board = document.getElementById('board');
-function toSvg(evt){
-  const pt = board.createSVGPoint();
-  pt.x = evt.clientX; pt.y = evt.clientY;
-  const p = pt.matrixTransform(board.getScreenCTM().inverse());
-  return {x: Math.round(p.x), y: Math.round(p.y)};
-}
+function toSvg(evt){ return svgPoint(board, evt); }
 
 let drag = null, tempLine = null;
 
@@ -746,14 +842,7 @@ board.addEventListener('pointerdown', e=>{
   // pass / run : trait
   const p = toSvg(e);
   drag = {line:{x1:p.x, y1:p.y, x2:p.x, y2:p.y}};
-  tempLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-  const st = TRACE[pcMode] || TRACE.run;
-  tempLine.setAttribute('stroke', st.color);
-  tempLine.setAttribute('stroke-width', st.width);
-  tempLine.setAttribute('stroke-linecap','round');
-  if(st.dash) tempLine.setAttribute('stroke-dasharray', st.dash);
-  tempLine.setAttribute('marker-end','url(#ah)');
-  document.getElementById('shapes').appendChild(tempLine);
+  tempLine = startTempLine(board, 'shapes', pcMode, p);
   board.setPointerCapture(e.pointerId);
 });
 
@@ -787,13 +876,13 @@ board.addEventListener('pointerup', e=>{
   drag = null; tempLine = null;
 });
 
-function labelShape(s){
+function labelShape(s, redraw){
   if(!s) return;
   const def = (TRACE[s.type] || TRACE.run).label;
   const v = prompt('Texte écrit le long de la flèche.\nLaisse vide pour revenir à « '+def+' ».', s.label || def);
   if(v===null) return;
   if(v.trim()==='' || v.trim()===def) delete s.label; else s.label = v.trim();
-  save(); renderPC();
+  save(); (redraw || renderPC)();
 }
 
 function renameToken(t){

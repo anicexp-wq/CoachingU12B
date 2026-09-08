@@ -655,31 +655,37 @@ function renderCompo(){
         '<span class="disc">'+(p ? (p.num || initials(p.name)) : '+')+'</span>' +
         '<span class="lbl">'+(p ? escapeHtml(shortName(p.name)) : pos.label)+'</span>';
 
+      let dragged = false;
       btn.addEventListener('pointerdown', e=>{
         if(compoMode!=='squad' || compoPlaying) return;
         const rect = pitch.getBoundingClientRect();
         const x0 = e.clientX, y0 = e.clientY;
-        let moved = false;
+        dragged = false;
         btn.setPointerCapture(e.pointerId);
         const onMove = ev=>{
-          if(!moved && Math.hypot(ev.clientX-x0, ev.clientY-y0) < 8) return;
-          moved = true;
+          if(!dragged && Math.hypot(ev.clientX-x0, ev.clientY-y0) < 8) return;
+          dragged = true;
           btn.style.left = Math.max(3, Math.min(97, (ev.clientX-rect.left)/rect.width*100))+'%';
           btn.style.top  = Math.max(2, Math.min(98, (ev.clientY-rect.top)/rect.height*100))+'%';
         };
         const onUp = ()=>{
           btn.removeEventListener('pointermove', onMove);
           btn.removeEventListener('pointerup', onUp);
-          if(moved){
+          if(dragged){
             compo.pos = compo.pos || {};
             compo.pos[key] = {x: parseFloat(btn.style.left), y: parseFloat(btn.style.top)};
             save();
-          }else{
-            openPicker(key, pos, onFieldCount());
           }
         };
         btn.addEventListener('pointermove', onMove);
         btn.addEventListener('pointerup', onUp);
+      });
+      // l'ouverture se fait sur le clic : le clic issu de l'appui est ainsi consommé
+      // par le poste lui-même et ne retombe pas sur la liste qui vient de s'ouvrir
+      btn.addEventListener('click', ()=>{
+        if(dragged){ dragged = false; return; }
+        if(compoMode!=='squad' || compoPlaying) return;
+        openPicker(key, pos, onFieldCount());
       });
       pitch.appendChild(btn);
     }

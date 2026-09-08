@@ -109,15 +109,12 @@ li.present .switch::after{transform:translateX(21px)}
 
 /* ---------- Terrain ---------- */
 .pitch{
-  position:relative;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;
+  position:relative;width:100%;aspect-ratio:550/914;border-radius:12px;overflow:hidden;
   background:
     repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 34px),
     linear-gradient(180deg,#31846A 0%,#2E7D63 55%,#2A705A 100%);
   border:2px solid rgba(255,255,255,.35);
 }
-.pitch .arc{position:absolute;left:50%;transform:translateX(-50%);border:2px solid var(--line);border-bottom:0;border-radius:50% 50% 0 0 / 100% 100% 0 0;width:74%;height:26%;bottom:0}
-.pitch .goal{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:22%;height:8px;background:#fff;border-radius:2px}
-.pitch .halfway{position:absolute;left:0;right:0;top:0;border-top:2px dashed var(--line)}
 .slot{
   position:absolute;transform:translate(-50%,-50%);width:72px;text-align:center;
   background:none;border:0;padding:0;color:#fff;
@@ -223,10 +220,8 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button data-cmode="erase" aria-pressed="false">Gomme</button>
       </div>
       <div class="pitch" id="pitch">
-        <div class="halfway"></div>
-        <div class="arc"></div>
-        <div class="goal"></div>
-        <svg class="overlay" id="compo-svg" viewBox="0 0 550 733" xmlns="http://www.w3.org/2000/svg">
+        <svg class="overlay" id="compo-svg" viewBox="0 0 550 914" xmlns="http://www.w3.org/2000/svg">
+          <g id="compo-lines"></g>
           <g id="compo-shapes"></g>
         </svg>
       </div>
@@ -293,10 +288,10 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 const KEY = 'grezhc-u12b1-coach-v1';
 const uid = () => Math.random().toString(36).slice(2,9);
 const POSITIONS = [
-  {code:'ATT', label:'Attaque',  n:3, y:15, xs:[24,50,76]},
-  {code:'MID', label:'Milieu',   n:3, y:41, xs:[19,50,81]},
-  {code:'DEF', label:'Défense',  n:3, y:67, xs:[24,50,76]},
-  {code:'GK',  label:'Gardien',  n:1, y:88, xs:[50]}
+  {code:'ATT', label:'Attaque',  n:3, y:31, xs:[24,50,76]},   // dans le camp adverse
+  {code:'MID', label:'Milieu',   n:3, y:52, xs:[19,50,81]},   // autour de la ligne médiane
+  {code:'DEF', label:'Défense',  n:3, y:72, xs:[24,50,76]},
+  {code:'GK',  label:'Gardien',  n:1, y:93, xs:[50]}
 ];
 const MAX_ON_FIELD = 8;
 
@@ -604,10 +599,31 @@ function openPicker(key, pos, count){
   picker.showModal();
 }
 
+function drawCompoPitch(){
+  const W = 550, H = 914, cx = 275, P = 18.3, R = 146;   // 10 unités = 1 mètre
+  const L = 'rgba(255,255,255,.7)';
+  const circle = (backY, dir) => {
+    const sweep = dir>0 ? 0 : 1;   // dir = +1 : but en haut, le cercle descend
+    const y = backY + dir*R;
+    return `<path d="M ${cx-P-R},${backY} A ${R},${R} 0 0 ${sweep} ${cx-P},${y} L ${cx+P},${y} A ${R},${R} 0 0 ${sweep} ${cx+P+R},${backY}"
+            fill="none" stroke="${L}" stroke-width="2.5"/>`;
+  };
+  document.getElementById('compo-lines').innerHTML = `
+    <rect x="5" y="5" width="${W-10}" height="${H-10}" fill="none" stroke="${L}" stroke-width="2.5"/>
+    <line x1="5" y1="${H/2}" x2="${W-5}" y2="${H/2}" stroke="${L}" stroke-width="2.5"/>
+    <line x1="5" y1="229" x2="${W-5}" y2="229" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-dasharray="10 12"/>
+    <line x1="5" y1="${H-229}" x2="${W-5}" y2="${H-229}" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-dasharray="10 12"/>
+    ${circle(5, 1)}
+    ${circle(H-5, -1)}
+    <rect x="${cx-P}" y="0" width="${P*2}" height="7" fill="rgba(255,255,255,.95)"/>
+    <rect x="${cx-P}" y="${H-7}" width="${P*2}" height="7" fill="rgba(255,255,255,.95)"/>
+  `;
+}
+
 /* --- flèches sur le terrain des compos --- */
 let compoMode = 'squad';
 const csvg = document.getElementById('compo-svg');
-const CW = 550, CH = 733;
+const CW = 550, CH = 914;
 
 function renderCompoShapes(){
   renderShapes(document.getElementById('compo-shapes'), state.compos[compoIndex].shapes);
@@ -1025,6 +1041,7 @@ function render(){
     presentPlayers().length + ' présents sur ' + state.players.length + ' joueurs';
 }
 drawPitchLines();
+drawCompoPitch();
 render();
 
 if('serviceWorker' in navigator){

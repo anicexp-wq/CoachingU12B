@@ -872,7 +872,13 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
 /* ==================================================================
    Rendu global
 ================================================================== */
+function sortPlayers(){
+  // tri français : Célian entre Charly et Eric, Léon entre Hugo et Louis
+  state.players.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+}
+
 function render(){
+  sortPlayers();
   renderNav();
   if(view==='players') renderPlayers();
   if(view==='compos')  renderCompo();

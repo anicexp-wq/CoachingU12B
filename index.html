@@ -196,10 +196,6 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button class="btn" id="btn-export">Exporter</button>
         <button class="btn" id="btn-import">Importer</button>
       </div>
-      <p class="muted" style="margin:14px 0 0">Version installée : <strong id="app-version">?</strong>. Si une nouveauté n'apparaît pas, recharge la dernière version publiée.</p>
-      <div class="rowbar" style="margin:8px 0 0">
-        <button class="btn" id="btn-update">Recharger la dernière version</button>
-      </div>
     </div>
   </section>
 
@@ -236,6 +232,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button data-mode="move" aria-pressed="true">Déplacer</button>
         <button data-mode="pass" aria-pressed="false">Passe</button>
         <button data-mode="run" aria-pressed="false">Course</button>
+        <button data-mode="tir" aria-pressed="false">Tir</button>
         <button data-mode="erase" aria-pressed="false">Gomme</button>
       </div>
       <svg class="board" id="board" viewBox="0 0 550 300" xmlns="http://www.w3.org/2000/svg">
@@ -250,11 +247,14 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       </svg>
       <div class="tools" style="margin-top:10px">
         <button id="btn-add-player">＋ Joueur</button>
-        <button id="btn-add-role">＋ Rôle</button>
         <button id="btn-add-opp">＋ Adversaire</button>
-        <button id="btn-preset">Dispositif de base</button>
+        <button id="btn-preset">Placer les adversaires</button>
         <button id="btn-undo">Annuler le trait</button>
         <button id="btn-clear-pc">Tout effacer</button>
+      </div>
+      <div class="tools" style="margin-top:6px">
+        <button id="btn-save-strat">Enregistrer la stratégie</button>
+        <button id="btn-load-strat">Charger une stratégie</button>
       </div>
       <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Touche une flèche pour changer le mot écrit dessus. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
     </div>
@@ -276,7 +276,6 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
    État + stockage
 ================================================================== */
 const KEY = 'grezhc-u12b1-coach-v1';
-const APP_VERSION = '6 — tri alphabétique';
 const uid = () => Math.random().toString(36).slice(2,9);
 const POSITIONS = [
   {code:'ATT', label:'Attaque',  n:3, y:15, xs:[24,50,76]},
@@ -319,6 +318,7 @@ function migrate(s){
     s.compos[i] = s.compos[i] || {name:'Compo '+(i+1), slots:{}};
     s.compos[i].slots = s.compos[i].slots || {};
   }
+  s.strategies = s.strategies || [null,null,null,null,null];
   s.pc = s.pc || {};
   PC_BOARDS.forEach(b=>{
     s.pc[b.id] = s.pc[b.id] || {tokens:[], shapes:[], notes:''};
@@ -625,6 +625,11 @@ function flash(msg){
    Onglet PC
 ================================================================== */
 const BOARD_W = 550, GOAL_X = 275, BACK_Y = 55, POST = 18.3, R = 146;
+const TRACE = {
+  pass:{color:'#F2C230', width:3.5, dash:'9 7', label:'passe'},
+  run: {color:'#FFFFFF', width:3.5, dash:'',    label:'course'},
+  tir: {color:'#FF7A1A', width:6,   dash:'',    label:'tir'}
+};
 const CAGE_W = 130, CAGE_D = 46;   // but dessiné agrandi : 5 jetons doivent y tenir
 const TOK_R = 13;
 let pcMode = 'move';
@@ -665,9 +670,10 @@ function renderPC(){
 
   const shapesG = document.getElementById('shapes');
   shapesG.innerHTML = d.shapes.map(s=>{
-    const col = s.type==='pass' ? '#F2C230' : '#ffffff';
-    const dash = s.type==='pass' ? 'stroke-dasharray="9 7"' : '';
-    const txt = s.label || (s.type==='pass' ? 'passe' : 'course');
+    const st = TRACE[s.type] || TRACE.run;
+    const col = st.color;
+    const dash = st.dash ? `stroke-dasharray="${st.dash}"` : '';
+    const txt = s.label || st.label;
     const dx = s.x2-s.x1, dy = s.y2-s.y1;
     const rad = Math.atan2(dy, dx);
     let deg = rad*180/Math.PI;
@@ -681,7 +687,7 @@ function renderPC(){
       <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
             stroke="transparent" stroke-width="20" stroke-linecap="round"/>
       <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
-            stroke="${col}" stroke-width="3.5" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
+            stroke="${col}" stroke-width="${st.width}" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
       ${long ? `<text x="${tx}" y="${ty}" transform="rotate(${deg.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})"
             text-anchor="middle" font-size="12" fill="${col}"
             stroke="rgba(0,0,0,.55)" stroke-width="3.5" style="paint-order:stroke"
@@ -741,10 +747,11 @@ board.addEventListener('pointerdown', e=>{
   const p = toSvg(e);
   drag = {line:{x1:p.x, y1:p.y, x2:p.x, y2:p.y}};
   tempLine = document.createElementNS('http://www.w3.org/2000/svg','line');
-  tempLine.setAttribute('stroke', pcMode==='pass' ? '#F2C230' : '#fff');
-  tempLine.setAttribute('stroke-width','3.5');
+  const st = TRACE[pcMode] || TRACE.run;
+  tempLine.setAttribute('stroke', st.color);
+  tempLine.setAttribute('stroke-width', st.width);
   tempLine.setAttribute('stroke-linecap','round');
-  if(pcMode==='pass') tempLine.setAttribute('stroke-dasharray','9 7');
+  if(st.dash) tempLine.setAttribute('stroke-dasharray', st.dash);
   tempLine.setAttribute('marker-end','url(#ah)');
   document.getElementById('shapes').appendChild(tempLine);
   board.setPointerCapture(e.pointerId);
@@ -782,7 +789,7 @@ board.addEventListener('pointerup', e=>{
 
 function labelShape(s){
   if(!s) return;
-  const def = s.type==='pass' ? 'passe' : 'course';
+  const def = (TRACE[s.type] || TRACE.run).label;
   const v = prompt('Texte écrit le long de la flèche.\nLaisse vide pour revenir à « '+def+' ».', s.label || def);
   if(v===null) return;
   if(v.trim()==='' || v.trim()===def) delete s.label; else s.label = v.trim();
@@ -803,10 +810,6 @@ function addToken(label, team, x, y){
   d.tokens.push({id:uid(), label, team, x, y});
   save(); renderPC();
 }
-document.getElementById('btn-add-role').addEventListener('click', ()=>{
-  const l = prompt('Nom du rôle (ex : Inj, Stop, Tir)');
-  if(l && l.trim()) addToken(l.trim(), 'us', 275, 200);
-});
 document.getElementById('btn-add-opp').addEventListener('click', ()=>{
   const d = state.pc[PC_BOARDS[pcIndex].id];
   const n = d.tokens.filter(t=>t.team==='them').length + 1;
@@ -836,34 +839,75 @@ document.getElementById('btn-add-player').addEventListener('click', ()=>{
 document.getElementById('btn-preset').addEventListener('click', ()=>{
   const b = PC_BOARDS[pcIndex];
   const d = state.pc[b.id];
-  if(d.tokens.length && !confirm('Remplacer les jetons déjà placés ?')) return;
-  d.tokens = [];
-  const T = (label,team,x,y)=>d.tokens.push({id:uid(),label,team,x,y});
-  const LINE = BACK_Y - CAGE_D/2;                 // rangée dans le but
-  const P = i => GOAL_X + i*26;                   // 5 places : -2 -1 0 +1 +2
+  d.tokens = d.tokens.filter(t=>t.team!=='them');   // nos joueurs déjà posés restent en place
+  const T = (label,x,y)=>d.tokens.push({id:uid(), label, team:'them', x, y});
+  const LINE = BACK_Y - CAGE_D/2;
+  const P = i => GOAL_X + i*26;
   if(b.side==='atk'){
-    T('Inj','us', GOAL_X-91, BACK_Y-14);
-    T('Stop','us', GOAL_X-8, BACK_Y+R-6);
-    T('Tir','us', GOAL_X+30, BACK_Y+R+8);
-    T('RebG','us', GOAL_X-72, BACK_Y+95);
-    T('RebD','us', GOAL_X+72, BACK_Y+95);
-    T('PG','them', P(-2), LINE);
-    T('S1','them', P(-1), LINE);
-    T('GK','them', P(0),  LINE);
-    T('S2','them', P(1),  LINE);
-    T('PD','them', P(2),  LINE);
+    // défense adverse : cinq sur la ligne de but
+    T('PG', P(-2), LINE);
+    T('S1', P(-1), LINE);
+    T('GK', P(0),  LINE);
+    T('S2', P(1),  LINE);
+    T('PD', P(2),  LINE);
   }else{
-    T('PG','us', P(-2), LINE);
-    T('S1','us', P(-1), LINE);
-    T('GK','gk', P(0),  LINE);
-    T('S2','us', P(1),  LINE);
-    T('PD','us', P(2),  LINE);
-    T('Inj','them', GOAL_X+91, BACK_Y-14);
-    T('Stop','them', GOAL_X-8, BACK_Y+R-6);
-    T('Tir','them', GOAL_X+30, BACK_Y+R+8);
+    // attaque adverse : le passeur sur la ligne, trois répartis sur le cercle
+    T('Pas', GOAL_X+91, BACK_Y-14);
+    T('A1', GOAL_X-POST-103, BACK_Y+103);   // gauche, sur l'arc
+    T('A2', GOAL_X,          BACK_Y+R);     // sommet du cercle
+    T('A3', GOAL_X+POST+103, BACK_Y+103);   // droite, sur l'arc
   }
   save(); renderPC();
 });
+function openStrategyDialog(mode){
+  const board = PC_BOARDS[pcIndex];
+  const d = state.pc[board.id];
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = mode==='save' ? 'Enregistrer la stratégie' : 'Charger une stratégie';
+  body.innerHTML = '';
+
+  if(mode==='load' && state.strategies.every(s=>!s)){
+    body.innerHTML = '<p class="empty">Aucune stratégie enregistrée pour l\'instant.</p>';
+  }
+
+  state.strategies.forEach((s,i)=>{
+    if(mode==='load' && !s) return;
+    const btn = document.createElement('button');
+    btn.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
+    if(!s) btn.style.color = 'var(--ink-soft)';
+    btn.addEventListener('click', ()=>{
+      if(mode==='save'){
+        const name = prompt('Nom de la stratégie.\nLaisse vide pour libérer cet emplacement.', s ? s.name : board.title);
+        if(name===null) return;
+        if(name.trim()===''){
+          state.strategies[i] = null;
+        }else{
+          state.strategies[i] = {
+            name: name.trim().slice(0,24),
+            date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
+            tokens: JSON.parse(JSON.stringify(d.tokens)),
+            shapes: JSON.parse(JSON.stringify(d.shapes)),
+            notes: d.notes || ''
+          };
+        }
+        save(); picker.close();
+        flash(name.trim()==='' ? 'Emplacement libéré' : 'Stratégie enregistrée');
+      }else{
+        if(!confirm('Remplacer le schéma affiché par « '+s.name+' » ?')) return;
+        d.tokens = JSON.parse(JSON.stringify(s.tokens));
+        d.shapes = JSON.parse(JSON.stringify(s.shapes));
+        d.notes  = s.notes || '';
+        save(); picker.close(); renderPC();
+      }
+    });
+    body.appendChild(btn);
+  });
+  picker.showModal();
+}
+document.getElementById('btn-save-strat').addEventListener('click', ()=>openStrategyDialog('save'));
+document.getElementById('btn-load-strat').addEventListener('click', ()=>openStrategyDialog('load'));
+
 document.getElementById('btn-undo').addEventListener('click', ()=>{
   const d = state.pc[PC_BOARDS[pcIndex].id];
   d.shapes.pop(); save(); renderPC();
@@ -893,21 +937,6 @@ function render(){
 }
 drawPitchLines();
 render();
-
-document.getElementById('app-version').textContent = APP_VERSION;
-document.getElementById('btn-update').addEventListener('click', async ()=>{
-  try{
-    if('caches' in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k=>caches.delete(k)));
-    }
-    if(navigator.serviceWorker){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r=>r.unregister()));
-    }
-  }catch(e){}
-  location.reload();
-});
 
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('service-worker.js').catch(()=>{});

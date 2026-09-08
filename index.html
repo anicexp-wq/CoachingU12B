@@ -132,6 +132,23 @@ li.present .switch::after{transform:translateX(21px)}
 .pitch .overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none}
 .pitch.drawing .overlay{pointer-events:auto}
 .pitch.drawing .slot{pointer-events:none}
+.mini{height:34vh;max-height:330px;width:auto;aspect-ratio:550/914;margin:0 auto}
+.mini .slot{width:60px}
+.mini .disc{width:36px;height:36px;font-size:13px;border-width:2px}
+.mini .lbl{font-size:10px}
+.slot.out .disc{box-shadow:0 0 0 4px #FF3B30}
+.slot.in  .disc{box-shadow:0 0 0 4px #2ECC71}
+.slot.moved .disc{box-shadow:0 0 0 4px #F2C230}
+.tag{display:block;font-size:10px;font-weight:800;letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.slot.out .tag{color:#FF6B63}
+.slot.in .tag{color:#7BE0A0}
+.slot.moved .tag{color:#F2C230}
+.pitch-title{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px;font-weight:650}
+.pitch-title select{flex:1;border:1px solid var(--stroke);border-radius:9px;padding:7px 9px;background:var(--surface)}
+ul.changes{list-style:none;margin:0;padding:0}
+ul.changes li{padding:9px 2px;border-bottom:1px solid var(--stroke);font-size:14.5px}
+ul.changes li:last-child{border-bottom:0}
+ul.changes .where{font-weight:700}
 .bench{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
 .chip{background:var(--page);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
 
@@ -207,7 +224,21 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 
   <!-- ============ COMPOS ============ -->
   <section id="view-compos" hidden>
-    <div class="card">
+    <div class="card" id="card-compare" hidden>
+      <div class="pitch-title"><span>Avant</span><select id="cmp-a"></select></div>
+      <div class="pitch mini" id="pitch-a"></div>
+      <div class="pitch-title" style="margin:14px 0 8px"><span>Après</span><select id="cmp-b"></select></div>
+      <div class="pitch mini" id="pitch-b"></div>
+    </div>
+    <div class="card" id="card-changes" hidden>
+      <div class="rowbar"><h2>Qui remplace qui</h2></div>
+      <ul class="changes" id="change-list"></ul>
+      <p class="empty" id="change-empty" hidden>Les deux compositions sont identiques.</p>
+      <div class="rowbar" style="margin:12px 0 0">
+        <button class="btn" id="btn-copy-changes">Copier les changements</button>
+      </div>
+    </div>
+    <div class="card" id="card-compo">
       <div class="rowbar">
         <h2 id="compo-title">Compo 1</h2>
         <span class="count" id="field-count">0/8</span>
@@ -232,7 +263,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button class="btn danger" id="btn-clear-compo">Vider</button>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="card-bench">
       <div class="rowbar"><h2>Sur le banc</h2></div>
       <div class="bench" id="bench"></div>
       <p class="empty" id="bench-empty" hidden>Tous les présents sont sur le terrain.</p>
@@ -367,7 +398,7 @@ function renderNav(){
   if(view==='players'){ sub.hidden = true; return; }
   sub.hidden = false;
   const items = view==='compos'
-    ? state.compos.map((c,i)=>({label:c.name, i}))
+    ? state.compos.map((c,i)=>({label:c.name, i})).concat([{label:'Changements', i:5}])
     : PC_BOARDS.map((b,i)=>({label:b.title.replace('PC attaque','Attaque ').replace('PC défense','Défense'), i}));
   const active = view==='compos' ? compoIndex : pcIndex;
   items.forEach(it=>{
@@ -504,7 +535,92 @@ document.getElementById('btn-import').addEventListener('click', ()=>{
 ================================================================== */
 function slotKey(code,i){ return code+i; }
 
+function slotName(pos, i){
+  if(pos.n===1) return pos.label;
+  return pos.label + ' ' + ['gauche','centre','droite'][i];
+}
+function keyOf(compo, pid){
+  return Object.keys(compo.slots).find(k=>compo.slots[k]===pid) || null;
+}
+function fillMiniPitch(el, compo, other, role){
+  el.innerHTML = '<svg class="overlay" viewBox="0 0 550 914" xmlns="http://www.w3.org/2000/svg">'
+                 + pitchLinesMarkup() + '</svg>';
+  POSITIONS.forEach(pos=>{
+    for(let i=0;i<pos.n;i++){
+      const key = slotKey(pos.code,i);
+      const p = byId(compo.slots[key]);
+      let cls = '', tag = '';
+      if(p){
+        const there = keyOf(other, p.id);
+        if(!there){ cls = role==='before' ? 'out' : 'in'; tag = role==='before' ? 'sort' : 'entre'; }
+        else if(there !== key){ cls = 'moved'; tag = 'change de poste'; }
+      }
+      const d = document.createElement('div');
+      d.className = 'slot' + (p?' filled':'') + (pos.code==='GK'?' gk':'') + (cls?' '+cls:'');
+      d.style.left = pos.xs[i]+'%';
+      d.style.top = pos.y+'%';
+      d.innerHTML = '<span class="disc">'+(p ? (p.num || initials(p.name)) : '')+'</span>'
+        + (p ? '<span class="lbl">'+escapeHtml(shortName(p.name))+'</span>' : '')
+        + (tag ? '<span class="tag">'+tag+'</span>' : '');
+      el.appendChild(d);
+    }
+  });
+}
+function renderCompare(){
+  ['card-compo','card-bench'].forEach(id=>document.getElementById(id).hidden = true);
+  document.getElementById('card-compare').hidden = false;
+  document.getElementById('card-changes').hidden = false;
+
+  [['cmp-a', 0], ['cmp-b', 1]].forEach(([id, def])=>{
+    const sel = document.getElementById(id);
+    const keep = sel.value;
+    sel.innerHTML = state.compos.map((c,i)=>'<option value="'+i+'">'+escapeHtml(c.name)+'</option>').join('');
+    sel.value = keep !== '' && keep !== null && state.compos[keep] ? keep : String(def);
+  });
+  const a = state.compos[+document.getElementById('cmp-a').value];
+  const b = state.compos[+document.getElementById('cmp-b').value];
+
+  fillMiniPitch(document.getElementById('pitch-a'), a, b, 'before');
+  fillMiniPitch(document.getElementById('pitch-b'), b, a, 'after');
+
+  const rows = [];
+  POSITIONS.forEach(pos=>{
+    for(let i=0;i<pos.n;i++){
+      const key = slotKey(pos.code,i);
+      const pa = byId(a.slots[key]), pb = byId(b.slots[key]);
+      if((pa && pb && pa.id!==pb.id) || (pa && !pb) || (!pa && pb)){
+        rows.push({where: slotName(pos,i), out: pa, in: pb});
+      }
+    }
+  });
+  const ul = document.getElementById('change-list');
+  ul.innerHTML = rows.map(r=>{
+    let txt;
+    if(r.out && r.in) txt = r.in.name + ' remplace ' + r.out.name;
+    else if(r.in)     txt = r.in.name + ' entre';
+    else              txt = r.out.name + ' sort';
+    return '<li><span class="where">'+escapeHtml(r.where)+'</span> — '+escapeHtml(txt)+'</li>';
+  }).join('');
+  document.getElementById('change-empty').hidden = rows.length>0;
+  changeRows = rows;
+}
+let changeRows = [];
+document.getElementById('cmp-a').addEventListener('change', renderCompare);
+document.getElementById('cmp-b').addEventListener('change', renderCompare);
+document.getElementById('btn-copy-changes').addEventListener('click', ()=>{
+  const a = state.compos[+document.getElementById('cmp-a').value];
+  const b = state.compos[+document.getElementById('cmp-b').value];
+  let t = 'Changements ' + a.name + ' → ' + b.name + '\n';
+  changeRows.forEach(r=>{
+    t += r.where + ' : ' + (r.out && r.in ? r.in.name+' remplace '+r.out.name
+        : r.in ? r.in.name+' entre' : r.out.name+' sort') + '\n';
+  });
+  navigator.clipboard?.writeText(t).then(()=>flash('Changements copiés'), ()=>prompt('Copie ce texte :', t));
+});
+
 function renderCompo(){
+  ['card-compare','card-changes'].forEach(id=>document.getElementById(id).hidden = true);
+  ['card-compo','card-bench'].forEach(id=>document.getElementById(id).hidden = false);
   const compo = state.compos[compoIndex];
   document.getElementById('compo-title').textContent = compo.name;
 
@@ -601,7 +717,7 @@ function openPicker(key, pos, count){
   picker.showModal();
 }
 
-function drawCompoPitch(){
+function pitchLinesMarkup(){
   const W = 550, H = 914, cx = 275, P = 18.3, R = 146;   // 10 unités = 1 mètre
   const L = 'rgba(255,255,255,.7)';
   const circle = (backY, dir) => {
@@ -610,7 +726,7 @@ function drawCompoPitch(){
     return `<path d="M ${cx-P-R},${backY} A ${R},${R} 0 0 ${sweep} ${cx-P},${y} L ${cx+P},${y} A ${R},${R} 0 0 ${sweep} ${cx+P+R},${backY}"
             fill="none" stroke="${L}" stroke-width="2.5"/>`;
   };
-  document.getElementById('compo-lines').innerHTML = `
+  return `
     <rect x="5" y="5" width="${W-10}" height="${H-10}" fill="none" stroke="${L}" stroke-width="2.5"/>
     <line x1="5" y1="${H/2}" x2="${W-5}" y2="${H/2}" stroke="${L}" stroke-width="2.5"/>
     <line x1="5" y1="229" x2="${W-5}" y2="229" stroke="rgba(255,255,255,.4)" stroke-width="2" stroke-dasharray="10 12"/>
@@ -620,6 +736,9 @@ function drawCompoPitch(){
     <rect x="${cx-P}" y="0" width="${P*2}" height="7" fill="rgba(255,255,255,.95)"/>
     <rect x="${cx-P}" y="${H-7}" width="${P*2}" height="7" fill="rgba(255,255,255,.95)"/>
   `;
+}
+function drawCompoPitch(){
+  document.getElementById('compo-lines').innerHTML = pitchLinesMarkup();
 }
 
 /* --- flèches sur le terrain des compos --- */
@@ -1126,7 +1245,7 @@ function render(){
   sortPlayers();
   renderNav();
   if(view==='players') renderPlayers();
-  if(view==='compos')  renderCompo();
+  if(view==='compos')  (compoIndex===5 ? renderCompare() : renderCompo());
   if(view==='pc')      renderPC();
   document.getElementById('hdr-sub').textContent =
     presentPlayers().length + ' présents sur ' + state.players.length + ' joueurs';

@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E30613">
+<title>Coach U12 B1 — Grez HC</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+:root{
+  --club:#E30613;        /* rouge du blason */
+  --club-dark:#A80610;   /* même rouge assombri : texte blanc lisible dessus */
+  --slate:#59716F;       /* gris-vert du bandeau du logo */
+  --turf:#2E7D63;
+  --turf-dark:#0F3D2E;
+  --line:rgba(255,255,255,.72);
+  --ink:#10201B;
+  --ink-soft:#59716F;
+  --surface:#FFFFFF;
+  --page:#EDF1EF;
+  --ball:#F2C230;
+  --us:#A80610;
+  --them:#33403F;
+  --stroke:#D3DBD7;
+  --radius:14px;
+  font-synthesis-weight:none;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  background:var(--page);color:var(--ink);
+  font-size:16px;line-height:1.45;
+  font-variant-numeric:tabular-nums;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+
+/* ---------- Chrome ---------- */
+header{
+  background:var(--club);
+  display:flex;align-items:center;gap:12px;color:#fff;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px 10px;
+  position:sticky;top:0;z-index:30;
+}
+#logo{width:42px;height:42px;flex:none;object-fit:contain;background:#fff;border-radius:10px;padding:3px}
+header h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.01em}
+header p{margin:2px 0 0;font-size:12.5px;opacity:.72}
+
+nav.main{
+  display:flex;background:var(--club);position:sticky;top:0;z-index:29;
+  padding:0 8px 8px;gap:6px;
+}
+nav.main button{
+  flex:1;background:rgba(255,255,255,.10);color:#fff;border:0;
+  padding:9px 4px;border-radius:10px;font-size:14px;font-weight:600;
+}
+nav.main button[aria-selected="true"]{background:#fff;color:var(--club)}
+
+nav.sub{
+  display:flex;gap:6px;overflow-x:auto;padding:10px 12px;
+  background:var(--surface);border-bottom:1px solid var(--stroke);
+  position:sticky;top:0;z-index:28;scrollbar-width:none;
+}
+nav.sub::-webkit-scrollbar{display:none}
+nav.sub button{
+  white-space:nowrap;border:1px solid var(--stroke);background:var(--page);
+  padding:7px 13px;border-radius:999px;font-size:14px;font-weight:600;color:var(--ink-soft);
+}
+nav.sub button[aria-selected="true"]{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
+
+main{padding:14px 12px 40px;max-width:640px;margin:0 auto}
+section[hidden]{display:none}
+
+.card{background:var(--surface);border-radius:var(--radius);padding:14px;margin-bottom:12px;border:1px solid var(--stroke)}
+.rowbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.rowbar h2{margin:0;font-size:16px;font-weight:650;flex:1}
+.count{background:var(--club-dark);color:#fff;border-radius:999px;padding:3px 11px;font-size:14px;font-weight:700}
+.count.warn{background:var(--slate)}
+.btn{border:1px solid var(--stroke);background:var(--surface);border-radius:10px;padding:9px 13px;font-size:14px;font-weight:600}
+.btn.primary{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--club-dark);border-color:#efc3cb}
+.btn:active{transform:translateY(1px)}
+.muted{color:var(--ink-soft);font-size:13.5px}
+
+/* ---------- Joueurs ---------- */
+ul.players{list-style:none;margin:0;padding:0}
+ul.players li{
+  display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--stroke);
+}
+ul.players li:last-child{border-bottom:0}
+.jersey{
+  width:38px;height:38px;flex:none;border-radius:10px;display:grid;place-items:center;
+  background:var(--page);font-weight:700;font-size:15px;color:var(--ink-soft);border:1px solid var(--stroke);
+}
+li.present .jersey{background:var(--club-dark);color:#fff;border-color:var(--club-dark)}
+.pname{flex:1;font-weight:600}
+li:not(.present) .pname{color:var(--ink-soft);font-weight:500}
+.switch{width:52px;height:31px;border-radius:999px;background:#CBD5D0;border:0;position:relative;flex:none;transition:background .15s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+li.present .switch{background:var(--club-dark)}
+li.present .switch::after{transform:translateX(21px)}
+.icon-btn{border:0;background:none;padding:6px;color:var(--ink-soft);font-size:17px}
+
+/* ---------- Terrain ---------- */
+.pitch{
+  position:relative;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.045) 0 1px,transparent 1px 34px),
+    linear-gradient(180deg,#31846A 0%,#2E7D63 55%,#2A705A 100%);
+  border:2px solid rgba(255,255,255,.35);
+}
+.pitch .arc{position:absolute;left:50%;transform:translateX(-50%);border:2px solid var(--line);border-bottom:0;border-radius:50% 50% 0 0 / 100% 100% 0 0;width:74%;height:26%;bottom:0}
+.pitch .goal{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:22%;height:8px;background:#fff;border-radius:2px}
+.pitch .halfway{position:absolute;left:0;right:0;top:0;border-top:2px dashed var(--line)}
+.slot{
+  position:absolute;transform:translate(-50%,-50%);width:72px;text-align:center;
+  background:none;border:0;padding:0;color:#fff;
+}
+.disc{
+  width:48px;height:48px;margin:0 auto;border-radius:50%;display:grid;place-items:center;
+  font-weight:700;font-size:17px;border:2px solid rgba(255,255,255,.9);
+  background:rgba(255,255,255,.14);color:rgba(255,255,255,.85);
+}
+.slot.filled .disc{background:var(--us);border-color:#fff;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.slot.gk.filled .disc{background:var(--ball);color:#221B00;border-color:#fff}
+.slot .lbl{display:block;font-size:11.5px;margin-top:3px;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.2}
+.slot.filled .lbl{font-weight:650}
+
+.pitch .overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none}
+.pitch.drawing .overlay{pointer-events:auto}
+.pitch.drawing .slot{pointer-events:none}
+.bench{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+.chip{background:var(--page);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
+
+/* ---------- PC board ---------- */
+.tools{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tools button{border:1px solid var(--stroke);background:var(--surface);border-radius:9px;padding:8px 12px;font-size:13.5px;font-weight:600}
+.tools button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+svg.board{width:100%;display:block;touch-action:none;border-radius:12px;background:linear-gradient(180deg,#2A705A,#31846A)}
+svg.board text{font-family:system-ui,sans-serif;font-weight:700;pointer-events:none}
+textarea{width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;resize:vertical;min-height:74px;background:var(--surface)}
+
+/* ---------- Modal ---------- */
+dialog{border:0;border-radius:16px;padding:0;width:min(420px,92vw);box-shadow:0 18px 48px rgba(0,0,0,.28)}
+dialog::backdrop{background:rgba(10,25,20,.5)}
+.dlg-head{padding:14px 16px 8px;font-weight:650}
+.dlg-body{padding:0 10px 10px;max-height:60vh;overflow:auto}
+.dlg-body button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 10px;border-radius:10px;font-size:16px;font-weight:600}
+.dlg-body button:active{background:var(--page)}
+.dlg-foot{padding:8px 12px 14px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--stroke)}
+.empty{padding:16px 12px;color:var(--ink-soft);font-size:14px}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+    <path d="M0,0 L10,5 L0,10 z" fill="#fff"/>
+  </marker>
+</defs></svg>
+
+<header>
+  <img id="logo" src="logo.png" alt="Grez HC" onerror="this.remove()">
+  <div>
+    <h1>Coach U12 B1 — Grez HC</h1>
+    <p id="hdr-sub">Présences, compositions et PC</p>
+  </div>
+</header>
+
+<nav class="main" role="tablist">
+  <button role="tab" data-view="players" aria-selected="true">Joueurs</button>
+  <button role="tab" data-view="compos" aria-selected="false">Compos</button>
+  <button role="tab" data-view="pc" aria-selected="false">PC</button>
+</nav>
+
+<nav class="sub" id="subnav" hidden></nav>
+
+<main>
+  <!-- ============ JOUEURS ============ -->
+  <section id="view-players">
+    <div class="card">
+      <div class="rowbar">
+        <h2>Présents</h2>
+        <span class="count" id="present-count">0</span>
+      </div>
+      <ul class="players" id="player-list"></ul>
+      <p class="empty" id="players-empty" hidden>Aucun joueur pour l'instant. Colle la liste de l'équipe pour commencer.</p>
+      <div class="rowbar" style="margin:12px 0 0">
+        <button class="btn" id="btn-add">Ajouter un joueur</button>
+        <button class="btn" id="btn-paste">Coller la liste</button>
+        <button class="btn ghost" id="btn-none">Tout décocher</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rowbar"><h2>Sauvegarde</h2></div>
+      <p class="muted">Tout est enregistré sur cet appareil uniquement. Exporte un fichier avant de changer de téléphone ou de vider le cache.</p>
+      <div class="rowbar" style="margin:10px 0 0">
+        <button class="btn" id="btn-export">Exporter</button>
+        <button class="btn" id="btn-import">Importer</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COMPOS ============ -->
+  <section id="view-compos" hidden>
+    <div class="card">
+      <div class="rowbar">
+        <h2 id="compo-title">Compo 1</h2>
+        <span class="count" id="field-count">0/8</span>
+      </div>
+      <div class="tools" id="compo-modes">
+        <button data-cmode="squad" aria-pressed="true">Joueurs</button>
+        <button data-cmode="pass" aria-pressed="false">Passe</button>
+        <button data-cmode="run" aria-pressed="false">Course</button>
+        <button data-cmode="tir" aria-pressed="false">Tir</button>
+        <button data-cmode="erase" aria-pressed="false">Gomme</button>
+      </div>
+      <div class="pitch" id="pitch">
+        <div class="halfway"></div>
+        <div class="arc"></div>
+        <div class="goal"></div>
+        <svg class="overlay" id="compo-svg" viewBox="0 0 550 733" xmlns="http://www.w3.org/2000/svg">
+          <g id="compo-shapes"></g>
+        </svg>
+      </div>
+      <div class="rowbar" style="margin:12px 0 0">
+        <button class="btn" id="btn-rename-compo">Renommer</button>
+        <button class="btn" id="btn-copy-compo">Copier le texte</button>
+        <button class="btn" id="btn-undo-compo">Annuler le trait</button>
+        <button class="btn danger" id="btn-clear-compo">Vider</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="rowbar"><h2>Sur le banc</h2></div>
+      <div class="bench" id="bench"></div>
+      <p class="empty" id="bench-empty" hidden>Tous les présents sont sur le terrain.</p>
+    </div>
+  </section>
+
+  <!-- ============ PC ============ -->
+  <section id="view-pc" hidden>
+    <div class="card">
+      <div class="rowbar"><h2 id="pc-title">PC attaque 1</h2></div>
+      <div class="tools" id="pc-modes">
+        <button data-mode="move" aria-pressed="true">Déplacer</button>
+        <button data-mode="pass" aria-pressed="false">Passe</button>
+        <button data-mode="run" aria-pressed="false">Course</button>
+        <button data-mode="tir" aria-pressed="false">Tir</button>
+        <button data-mode="erase" aria-pressed="false">Gomme</button>
+      </div>
+      <svg class="board" id="board" viewBox="0 0 550 300" xmlns="http://www.w3.org/2000/svg">
+        <g id="pitch-lines"></g>
+        <g id="shapes"></g>
+        <g id="tokens"></g>
+      </svg>
+      <div class="tools" style="margin-top:10px">
+        <button id="btn-add-player">＋ Joueur</button>
+        <button id="btn-add-opp">＋ Adversaire</button>
+        <button id="btn-preset">Placer les adversaires</button>
+        <button id="btn-undo">Annuler le trait</button>
+        <button id="btn-clear-pc">Tout effacer</button>
+      </div>
+      <div class="tools" style="margin-top:6px">
+        <button id="btn-save-strat">Enregistrer la stratégie</button>
+        <button id="btn-load-strat">Charger une stratégie</button>
+      </div>
+      <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Touche une flèche pour changer le mot écrit dessus. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
+    </div>
+    <div class="card">
+      <div class="rowbar"><h2>Consignes</h2></div>
+      <textarea id="pc-notes" placeholder="Qui pousse, qui stoppe, qui frappe, les rebonds…"></textarea>
+    </div>
+  </section>
+</main>
+
+<dialog id="picker">
+  <div class="dlg-head" id="picker-head">Choisir un joueur</div>
+  <div class="dlg-body" id="picker-body"></div>
+  <div class="dlg-foot"><button class="btn ghost" id="picker-close">Fermer</button></div>
+</dialog>
+
+<script>
+/* ==================================================================
+   État + stockage
+================================================================== */
+const KEY = 'grezhc-u12b1-coach-v1';
+const uid = () => Math.random().toString(36).slice(2,9);
+const POSITIONS = [
+  {code:'ATT', label:'Attaque',  n:3, y:15, xs:[24,50,76]},
+  {code:'MID', label:'Milieu',   n:3, y:41, xs:[19,50,81]},
+  {code:'DEF', label:'Défense',  n:3, y:67, xs:[24,50,76]},
+  {code:'GK',  label:'Gardien',  n:1, y:88, xs:[50]}
+];
+const MAX_ON_FIELD = 8;
+
+// Effectif U12 B1. Sert de liste de départ au premier lancement.
+// Modifiable ensuite dans l'onglet Joueurs (✎ pour renommer ou supprimer).
+const DEFAULT_PLAYERS = [
+  'Ereor','Augustin','Arthur','Maurice','Charly','Basile','Léon','Noé',
+  'Baptiste','Gauthier','Antoine','Eric','Louis','Arthus','Célian','Hugo'
+];
+
+const PC_BOARDS = [
+  {id:'atk1', title:'PC attaque 1', side:'atk'},
+  {id:'atk2', title:'PC attaque 2', side:'atk'},
+  {id:'atk3', title:'PC attaque 3', side:'atk'},
+  {id:'def1', title:'PC défense',   side:'def'}
+];
+
+let mem = null;
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(raw) return migrate(JSON.parse(raw));
+  }catch(e){ /* stockage indisponible : on reste en mémoire */ }
+  return mem || (mem = migrate({}));
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ mem = state; }
+}
+function migrate(s){
+  s.players = s.players || DEFAULT_PLAYERS.map(n=>({id:uid(), name:n, num:'', present:true}));
+  s.compos = s.compos || [];
+  for(let i=0;i<5;i++){
+    s.compos[i] = s.compos[i] || {name:'Compo '+(i+1), slots:{}};
+    s.compos[i].slots = s.compos[i].slots || {};
+    s.compos[i].shapes = s.compos[i].shapes || [];
+  }
+  s.strategies = s.strategies || [null,null,null,null,null];
+  s.pc = s.pc || {};
+  PC_BOARDS.forEach(b=>{
+    s.pc[b.id] = s.pc[b.id] || {tokens:[], shapes:[], notes:''};
+  });
+  return s;
+}
+let state = load();
+
+const byId = id => state.players.find(p=>p.id===id);
+const presentPlayers = () => state.players.filter(p=>p.present);
+
+/* ==================================================================
+   Navigation
+================================================================== */
+let view = 'players';
+let compoIndex = 0;
+let pcIndex = 0;
+
+document.querySelectorAll('nav.main button').forEach(b=>{
+  b.addEventListener('click', ()=>{ view = b.dataset.view; render(); });
+});
+
+function renderNav(){
+  document.querySelectorAll('nav.main button').forEach(b=>{
+    b.setAttribute('aria-selected', String(b.dataset.view===view));
+  });
+  document.getElementById('view-players').hidden = view!=='players';
+  document.getElementById('view-compos').hidden  = view!=='compos';
+  document.getElementById('view-pc').hidden      = view!=='pc';
+
+  const sub = document.getElementById('subnav');
+  sub.innerHTML = '';
+  if(view==='players'){ sub.hidden = true; return; }
+  sub.hidden = false;
+  const items = view==='compos'
+    ? state.compos.map((c,i)=>({label:c.name, i}))
+    : PC_BOARDS.map((b,i)=>({label:b.title.replace('PC attaque','Attaque ').replace('PC défense','Défense'), i}));
+  const active = view==='compos' ? compoIndex : pcIndex;
+  items.forEach(it=>{
+    const b = document.createElement('button');
+    b.textContent = it.label;
+    b.setAttribute('aria-selected', String(it.i===active));
+    b.addEventListener('click', ()=>{
+      if(view==='compos') compoIndex = it.i; else pcIndex = it.i;
+      render();
+    });
+    sub.appendChild(b);
+  });
+}
+
+/* ==================================================================
+   Onglet Joueurs
+================================================================== */
+function renderPlayers(){
+  const ul = document.getElementById('player-list');
+  ul.innerHTML = '';
+  state.players.forEach(p=>{
+    const li = document.createElement('li');
+    li.className = p.present ? 'present' : '';
+
+    const j = document.createElement('div');
+    j.className = 'jersey';
+    j.textContent = p.num || initials(p.name);
+    li.appendChild(j);
+
+    const n = document.createElement('div');
+    n.className = 'pname';
+    n.textContent = p.name;
+    li.appendChild(n);
+
+    const edit = document.createElement('button');
+    edit.className = 'icon-btn';
+    edit.textContent = '✎';
+    edit.title = 'Modifier';
+    edit.addEventListener('click', ()=>editPlayer(p));
+    li.appendChild(edit);
+
+    const sw = document.createElement('button');
+    sw.className = 'switch';
+    sw.setAttribute('aria-label', 'Présent : '+p.name);
+    sw.addEventListener('click', ()=>{
+      p.present = !p.present;
+      if(!p.present) removeEverywhere(p.id);
+      save(); render();
+    });
+    li.appendChild(sw);
+
+    ul.appendChild(li);
+  });
+  document.getElementById('players-empty').hidden = state.players.length>0;
+  document.getElementById('present-count').textContent = presentPlayers().length + ' présents';
+}
+function initials(name){
+  const w = name.trim().split(/\s+/);
+  if(w.length===1) return w[0].slice(0,3); // Ere, Aug, Art… plus lisible qu'une seule lettre
+  return w.map(x=>x[0]).join('').slice(0,2).toUpperCase();
+}
+function removeEverywhere(pid){
+  state.compos.forEach(c=>{
+    Object.keys(c.slots).forEach(k=>{ if(c.slots[k]===pid) delete c.slots[k]; });
+  });
+}
+function editPlayer(p){
+  const name = prompt('Nom du joueur', p.name);
+  if(name===null) return;
+  if(name.trim()===''){
+    if(confirm('Supprimer '+p.name+' de la liste ?')){
+      removeEverywhere(p.id);
+      state.players = state.players.filter(x=>x.id!==p.id);
+      save(); render();
+    }
+    return;
+  }
+  p.name = name.trim();
+  const num = prompt('Numéro de maillot (laisse vide si aucun)', p.num||'');
+  if(num!==null) p.num = num.trim();
+  save(); render();
+}
+document.getElementById('btn-add').addEventListener('click', ()=>{
+  const name = prompt('Nom du joueur');
+  if(!name || !name.trim()) return;
+  const num = prompt('Numéro de maillot (facultatif)') || '';
+  state.players.push({id:uid(), name:name.trim(), num:num.trim(), present:true});
+  save(); render();
+});
+document.getElementById('btn-paste').addEventListener('click', ()=>{
+  const txt = prompt('Colle la liste, un joueur par ligne.\nFormat accepté : "7 Louis Dupont" ou "Louis Dupont"');
+  if(!txt) return;
+  txt.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    const m = line.match(/^(\d{1,2})[\s.\-–)]+(.+)$/);
+    state.players.push({
+      id:uid(),
+      num: m ? m[1] : '',
+      name: (m ? m[2] : line).trim(),
+      present:true
+    });
+  });
+  save(); render();
+});
+document.getElementById('btn-none').addEventListener('click', ()=>{
+  state.players.forEach(p=>{ p.present=false; removeEverywhere(p.id); });
+  save(); render();
+});
+document.getElementById('btn-export').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'coach-u12b1-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+});
+document.getElementById('btn-import').addEventListener('click', ()=>{
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'application/json';
+  inp.addEventListener('change', ()=>{
+    const f = inp.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ()=>{
+      try{
+        state = migrate(JSON.parse(r.result));
+        save(); render();
+      }catch(e){ alert("Ce fichier n'est pas une sauvegarde valide."); }
+    };
+    r.readAsText(f);
+  });
+  inp.click();
+});
+
+/* ==================================================================
+   Onglet Compos
+================================================================== */
+function slotKey(code,i){ return code+i; }
+
+function renderCompo(){
+  const compo = state.compos[compoIndex];
+  document.getElementById('compo-title').textContent = compo.name;
+
+  const pitch = document.getElementById('pitch');
+  pitch.querySelectorAll('.slot').forEach(el=>el.remove());
+
+  let onField = 0;
+  POSITIONS.forEach(pos=>{
+    for(let i=0;i<pos.n;i++){
+      const key = slotKey(pos.code,i);
+      const pid = compo.slots[key];
+      const p = pid ? byId(pid) : null;
+      if(p) onField++;
+
+      const btn = document.createElement('button');
+      btn.className = 'slot' + (p?' filled':'') + (pos.code==='GK'?' gk':'');
+      btn.style.left = pos.xs[i]+'%';
+      btn.style.top = pos.y+'%';
+      btn.innerHTML =
+        '<span class="disc">'+(p ? (p.num || initials(p.name)) : '+')+'</span>' +
+        '<span class="lbl">'+(p ? escapeHtml(shortName(p.name)) : pos.label)+'</span>';
+      btn.addEventListener('click', ()=>openPicker(key, pos, onFieldCount()));
+      pitch.appendChild(btn);
+    }
+  });
+
+  const c = document.getElementById('field-count');
+  c.textContent = onField+'/'+MAX_ON_FIELD;
+  c.className = 'count' + (onField>MAX_ON_FIELD ? ' warn':'');
+
+  renderCompoShapes();
+  document.getElementById('pitch').classList.toggle('drawing', compoMode!=='squad');
+
+  const bench = document.getElementById('bench');
+  bench.innerHTML = '';
+  const placed = new Set(Object.values(compo.slots));
+  const rest = presentPlayers().filter(p=>!placed.has(p.id));
+  rest.forEach(p=>{
+    const s = document.createElement('span');
+    s.className = 'chip';
+    s.textContent = (p.num? p.num+' ':'') + p.name;
+    bench.appendChild(s);
+  });
+  document.getElementById('bench-empty').hidden = rest.length>0 || presentPlayers().length===0;
+}
+function onFieldCount(){
+  return Object.values(state.compos[compoIndex].slots).filter(Boolean).length;
+}
+function shortName(n){
+  const parts = n.trim().split(/\s+/);
+  return parts.length>1 ? parts[0]+' '+parts[1][0]+'.' : parts[0];
+}
+function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+const picker = document.getElementById('picker');
+document.getElementById('picker-close').addEventListener('click', ()=>picker.close());
+
+function openPicker(key, pos, count){
+  const compo = state.compos[compoIndex];
+  const current = compo.slots[key];
+  const placed = new Set(Object.values(compo.slots));
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = pos.label + (pos.n>1 ? ' — poste '+(Number(key.slice(3))+1) : '');
+  body.innerHTML = '';
+
+  if(current){
+    const b = document.createElement('button');
+    b.textContent = '✕  Libérer ce poste';
+    b.style.color = 'var(--club-dark)';
+    b.addEventListener('click', ()=>{ delete compo.slots[key]; save(); picker.close(); render(); });
+    body.appendChild(b);
+  }
+
+  const avail = presentPlayers().filter(p=>!placed.has(p.id) || p.id===current);
+  if(presentPlayers().length===0){
+    body.insertAdjacentHTML('beforeend','<p class="empty">Coche d\'abord les joueurs présents dans l\'onglet Joueurs.</p>');
+  } else if(!current && count>=MAX_ON_FIELD){
+    body.insertAdjacentHTML('beforeend','<p class="empty">8 joueurs sont déjà sur le terrain. Libère un poste avant d\'en placer un autre.</p>');
+  } else if(avail.length===0){
+    body.insertAdjacentHTML('beforeend','<p class="empty">Tous les présents sont déjà placés.</p>');
+  } else {
+    avail.forEach(p=>{
+      const b = document.createElement('button');
+      b.textContent = (p.num ? p.num+'  ' : '') + p.name + (p.id===current ? '   ✓' : '');
+      b.addEventListener('click', ()=>{
+        Object.keys(compo.slots).forEach(k=>{ if(compo.slots[k]===p.id) delete compo.slots[k]; });
+        compo.slots[key] = p.id;
+        save(); picker.close(); render();
+      });
+      body.appendChild(b);
+    });
+  }
+  picker.showModal();
+}
+
+/* --- flèches sur le terrain des compos --- */
+let compoMode = 'squad';
+const csvg = document.getElementById('compo-svg');
+const CW = 550, CH = 733;
+
+function renderCompoShapes(){
+  renderShapes(document.getElementById('compo-shapes'), state.compos[compoIndex].shapes);
+}
+document.querySelectorAll('#compo-modes button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    compoMode = b.dataset.cmode;
+    document.querySelectorAll('#compo-modes button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+    document.getElementById('pitch').classList.toggle('drawing', compoMode!=='squad');
+  });
+});
+
+let cdrag = null, ctemp = null;
+csvg.addEventListener('pointerdown', e=>{
+  const compo = state.compos[compoIndex];
+  const hit = e.target.closest('[data-sid]');
+  if(compoMode==='erase'){
+    if(hit){
+      compo.shapes = compo.shapes.filter(s=>s.id!==hit.dataset.sid);
+      save(); renderCompoShapes();
+    }
+    return;
+  }
+  if(hit){
+    labelShape(compo.shapes.find(s=>s.id===hit.dataset.sid), renderCompoShapes);
+    return;
+  }
+  const p = svgPoint(csvg, e);
+  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y};
+  ctemp = startTempLine(csvg, 'compo-shapes', compoMode, p);
+  csvg.setPointerCapture(e.pointerId);
+});
+csvg.addEventListener('pointermove', e=>{
+  if(!cdrag || !ctemp) return;
+  const p = svgPoint(csvg, e);
+  cdrag.x2 = Math.max(0, Math.min(CW, p.x));
+  cdrag.y2 = Math.max(0, Math.min(CH, p.y));
+  ctemp.setAttribute('x2', cdrag.x2); ctemp.setAttribute('y2', cdrag.y2);
+});
+csvg.addEventListener('pointerup', ()=>{
+  if(!cdrag) return;
+  if(Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18){
+    state.compos[compoIndex].shapes.push({id:uid(), type:compoMode, ...cdrag});
+    save();
+  }
+  cdrag = null; ctemp = null;
+  renderCompoShapes();
+});
+
+document.getElementById('btn-undo-compo').addEventListener('click', ()=>{
+  state.compos[compoIndex].shapes.pop();
+  save(); renderCompoShapes();
+});
+
+document.getElementById('btn-rename-compo').addEventListener('click', ()=>{
+  const n = prompt('Nom de cette composition', state.compos[compoIndex].name);
+  if(n && n.trim()){ state.compos[compoIndex].name = n.trim().slice(0,18); save(); render(); }
+});
+document.getElementById('btn-clear-compo').addEventListener('click', ()=>{
+  if(confirm('Vider '+state.compos[compoIndex].name+' ?')){
+    state.compos[compoIndex].slots = {};
+    state.compos[compoIndex].shapes = [];
+    save(); render();
+  }
+});
+document.getElementById('btn-copy-compo').addEventListener('click', ()=>{
+  const compo = state.compos[compoIndex];
+  let t = compo.name + ' — U12 B1 Grez HC\n';
+  [...POSITIONS].reverse().forEach(pos=>{
+    const names = [];
+    for(let i=0;i<pos.n;i++){
+      const p = byId(compo.slots[slotKey(pos.code,i)]);
+      if(p) names.push(p.name);
+    }
+    if(names.length) t += pos.label+' : '+names.join(', ')+'\n';
+  });
+  const placed = new Set(Object.values(compo.slots));
+  const bench = presentPlayers().filter(p=>!placed.has(p.id)).map(p=>p.name);
+  if(bench.length) t += 'Banc : '+bench.join(', ');
+  navigator.clipboard?.writeText(t).then(
+    ()=>flash('Composition copiée'),
+    ()=>prompt('Copie ce texte :', t)
+  );
+});
+function flash(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#10201B;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;z-index:99';
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 1600);
+}
+
+/* ==================================================================
+   Onglet PC
+================================================================== */
+const BOARD_W = 550, GOAL_X = 275, BACK_Y = 55, POST = 18.3, R = 146;
+const TRACE = {
+  pass:{color:'#F2C230', width:3.5, dash:'9 7', label:'passe'},
+  run: {color:'#FFFFFF', width:3.5, dash:'',    label:'course'},
+  tir: {color:'#FF7A1A', width:6,   dash:'',    label:'tir'}
+};
+const CAGE_W = 130, CAGE_D = 46;   // but dessiné agrandi : 5 jetons doivent y tenir
+const TOK_R = 13;
+let pcMode = 'move';
+
+document.querySelectorAll('#pc-modes button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    pcMode = b.dataset.mode;
+    document.querySelectorAll('#pc-modes button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+  });
+});
+
+function drawPitchLines(){
+  const g = document.getElementById('pitch-lines');
+  const top = BACK_Y - CAGE_D;
+  let net = '';
+  for(let x = GOAL_X - CAGE_W/2 + 13; x < GOAL_X + CAGE_W/2; x += 13){
+    net += `<line x1="${x}" y1="${top}" x2="${x}" y2="${BACK_Y}" stroke="rgba(255,255,255,.28)" stroke-width="1"/>`;
+  }
+  g.innerHTML = `
+    <rect x="${GOAL_X-CAGE_W/2}" y="${top}" width="${CAGE_W}" height="${CAGE_D}" fill="rgba(255,255,255,.12)"/>
+    ${net}
+    <rect x="${GOAL_X-CAGE_W/2}" y="${top}" width="${CAGE_W}" height="${CAGE_D}" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="3"/>
+    <line x1="0" y1="${BACK_Y}" x2="${BOARD_W}" y2="${BACK_Y}" stroke="rgba(255,255,255,.75)" stroke-width="2.5"/>
+    <path d="M ${GOAL_X-POST-R},${BACK_Y} A ${R},${R} 0 0 0 ${GOAL_X-POST},${BACK_Y+R} L ${GOAL_X+POST},${BACK_Y+R} A ${R},${R} 0 0 0 ${GOAL_X+POST+R},${BACK_Y}"
+          fill="none" stroke="rgba(255,255,255,.75)" stroke-width="2.5"/>
+    <path d="M ${GOAL_X-POST-R-50},${BACK_Y} A ${R+50},${R+50} 0 0 0 ${GOAL_X-POST},${BACK_Y+R+50} L ${GOAL_X+POST},${BACK_Y+R+50} A ${R+50},${R+50} 0 0 0 ${GOAL_X+POST+R+50},${BACK_Y}"
+          fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2" stroke-dasharray="7 9"/>
+    <circle cx="${GOAL_X-91}" cy="${BACK_Y}" r="4" fill="#fff"/>
+    <circle cx="${GOAL_X+91}" cy="${BACK_Y}" r="4" fill="#fff"/>
+  `;
+}
+
+function shapeMarkup(s){
+  const st = TRACE[s.type] || TRACE.run;
+  const dash = st.dash ? `stroke-dasharray="${st.dash}"` : '';
+  const txt = s.label || st.label;
+  const dx = s.x2-s.x1, dy = s.y2-s.y1;
+  const rad = Math.atan2(dy, dx);
+  let deg = rad*180/Math.PI;
+  const flip = deg>90 || deg<-90;
+  if(flip) deg += 180;
+  const sign = flip ? -1 : 1;
+  const tx = s.x1 + dx*0.45 + Math.sin(rad)*11*sign;
+  const ty = s.y1 + dy*0.45 - Math.cos(rad)*11*sign;
+  const long = Math.hypot(dx,dy) > 46;
+  return `
+    <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+          stroke="transparent" stroke-width="20" stroke-linecap="round"/>
+    <line data-sid="${s.id}" x1="${s.x1}" y1="${s.y1}" x2="${s.x2}" y2="${s.y2}"
+          stroke="${st.color}" stroke-width="${st.width}" ${dash} marker-end="url(#ah)" stroke-linecap="round"/>
+    ${long ? `<text x="${tx}" y="${ty}" transform="rotate(${deg.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)})"
+          text-anchor="middle" font-size="12" fill="${st.color}"
+          stroke="rgba(0,0,0,.55)" stroke-width="3.5" style="paint-order:stroke"
+          >${escapeHtml(txt)}</text>` : ''}`;
+}
+function renderShapes(el, shapes){
+  el.innerHTML = shapes.map(shapeMarkup).join('');
+}
+function svgPoint(svgEl, evt){
+  const pt = svgEl.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const p = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+  return {x: Math.round(p.x), y: Math.round(p.y)};
+}
+function startTempLine(svgEl, groupId, mode, p){
+  const st = TRACE[mode] || TRACE.run;
+  const l = document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('stroke', st.color);
+  l.setAttribute('stroke-width', st.width);
+  l.setAttribute('stroke-linecap','round');
+  if(st.dash) l.setAttribute('stroke-dasharray', st.dash);
+  l.setAttribute('marker-end','url(#ah)');
+  l.setAttribute('x1',p.x); l.setAttribute('y1',p.y);
+  l.setAttribute('x2',p.x); l.setAttribute('y2',p.y);
+  document.getElementById(groupId).appendChild(l);
+  return l;
+}
+
+function renderPC(){
+  const b = PC_BOARDS[pcIndex];
+  const d = state.pc[b.id];
+  document.getElementById('pc-title').textContent = b.title;
+  document.getElementById('pc-notes').value = d.notes || '';
+
+  renderShapes(document.getElementById('shapes'), d.shapes);
+
+  const tokG = document.getElementById('tokens');
+  tokG.innerHTML = d.tokens.map(t=>{
+    const fill = t.team==='them' ? '#33403F' : (t.team==='gk' ? '#F2C230' : '#A80610');
+    const fg = t.team==='gk' ? '#221B00' : '#fff';
+    return `<g data-tid="${t.id}" style="cursor:grab">
+      <circle cx="${t.x}" cy="${t.y}" r="${TOK_R}" fill="${fill}" stroke="#fff" stroke-width="2"/>
+      <text x="${t.x}" y="${t.y+4}" text-anchor="middle" font-size="11" fill="${fg}">${escapeHtml(t.label).slice(0,4)}</text>
+    </g>`;
+  }).join('');
+}
+
+document.getElementById('pc-notes').addEventListener('input', e=>{
+  state.pc[PC_BOARDS[pcIndex].id].notes = e.target.value;
+  save();
+});
+
+const board = document.getElementById('board');
+function toSvg(evt){ return svgPoint(board, evt); }
+
+let drag = null, tempLine = null;
+
+board.addEventListener('pointerdown', e=>{
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  const tokenEl = e.target.closest('[data-tid]');
+  const shapeEl = e.target.closest('[data-sid]');
+
+  if(pcMode==='erase'){
+    if(tokenEl){ d.tokens = d.tokens.filter(t=>t.id!==tokenEl.dataset.tid); save(); renderPC(); }
+    else if(shapeEl){ d.shapes = d.shapes.filter(s=>s.id!==shapeEl.dataset.sid); save(); renderPC(); }
+    return;
+  }
+
+  if(pcMode==='move'){
+    if(!tokenEl){
+      if(shapeEl) labelShape(d.shapes.find(x=>x.id===shapeEl.dataset.sid));
+      return;
+    }
+    const t = d.tokens.find(x=>x.id===tokenEl.dataset.tid);
+    const p = toSvg(e);
+    drag = {t, dx:t.x-p.x, dy:t.y-p.y, moved:false};
+    board.setPointerCapture(e.pointerId);
+    return;
+  }
+
+  // pass / run : trait
+  const p = toSvg(e);
+  drag = {line:{x1:p.x, y1:p.y, x2:p.x, y2:p.y}};
+  tempLine = startTempLine(board, 'shapes', pcMode, p);
+  board.setPointerCapture(e.pointerId);
+});
+
+board.addEventListener('pointermove', e=>{
+  if(!drag) return;
+  const p = toSvg(e);
+  if(drag.t){
+    drag.t.x = Math.max(TOK_R+2, Math.min(BOARD_W-TOK_R-2, p.x+drag.dx));
+    drag.t.y = Math.max(TOK_R-3, Math.min(288-TOK_R, p.y+drag.dy));
+    drag.moved = true;
+    renderPC();
+  } else if(tempLine){
+    drag.line.x2 = p.x; drag.line.y2 = p.y;
+    tempLine.setAttribute('x1',drag.line.x1); tempLine.setAttribute('y1',drag.line.y1);
+    tempLine.setAttribute('x2',drag.line.x2); tempLine.setAttribute('y2',drag.line.y2);
+  }
+});
+
+board.addEventListener('pointerup', e=>{
+  if(!drag) return;
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  if(drag.t){
+    if(!drag.moved) renameToken(drag.t);
+    else save();
+  } else if(drag.line){
+    const L = drag.line;
+    const dist = Math.hypot(L.x2-L.x1, L.y2-L.y1);
+    if(dist>18) d.shapes.push({id:uid(), type:pcMode, ...L});
+    save(); renderPC();
+  }
+  drag = null; tempLine = null;
+});
+
+function labelShape(s, redraw){
+  if(!s) return;
+  const def = (TRACE[s.type] || TRACE.run).label;
+  const v = prompt('Texte écrit le long de la flèche.\nLaisse vide pour revenir à « '+def+' ».', s.label || def);
+  if(v===null) return;
+  if(v.trim()==='' || v.trim()===def) delete s.label; else s.label = v.trim();
+  save(); (redraw || renderPC)();
+}
+
+function renameToken(t){
+  const v = prompt('Nom du jeton (4 caractères max affichés). Laisse vide pour le supprimer.', t.label);
+  if(v===null) return;
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  if(v.trim()==='') d.tokens = d.tokens.filter(x=>x.id!==t.id);
+  else t.label = v.trim();
+  save(); renderPC();
+}
+
+function addToken(label, team, x, y){
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  d.tokens.push({id:uid(), label, team, x, y});
+  save(); renderPC();
+}
+document.getElementById('btn-add-opp').addEventListener('click', ()=>{
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  const n = d.tokens.filter(t=>t.team==='them').length + 1;
+  addToken('A'+n, 'them', 200+n*30, 110);
+});
+document.getElementById('btn-add-player').addEventListener('click', ()=>{
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Ajouter un joueur au schéma';
+  body.innerHTML = '';
+  const list = presentPlayers();
+  if(list.length===0){
+    body.innerHTML = '<p class="empty">Coche d\'abord les joueurs présents dans l\'onglet Joueurs.</p>';
+  }
+  list.forEach(p=>{
+    const b = document.createElement('button');
+    b.textContent = (p.num? p.num+'  ':'') + p.name;
+    b.addEventListener('click', ()=>{
+      addToken(p.num || initials(p.name), 'us', 275, 200);
+      picker.close();
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+});
+
+document.getElementById('btn-preset').addEventListener('click', ()=>{
+  const b = PC_BOARDS[pcIndex];
+  const d = state.pc[b.id];
+  d.tokens = d.tokens.filter(t=>t.team!=='them');   // nos joueurs déjà posés restent en place
+  const T = (label,x,y)=>d.tokens.push({id:uid(), label, team:'them', x, y});
+  const LINE = BACK_Y - CAGE_D/2;
+  const P = i => GOAL_X + i*26;
+  if(b.side==='atk'){
+    // défense adverse : cinq sur la ligne de but
+    T('PG', P(-2), LINE);
+    T('S1', P(-1), LINE);
+    T('GK', P(0),  LINE);
+    T('S2', P(1),  LINE);
+    T('PD', P(2),  LINE);
+  }else{
+    // attaque adverse : le passeur sur la ligne, trois répartis sur le cercle
+    T('Pas', GOAL_X+91, BACK_Y-14);
+    T('A1', GOAL_X-POST-103, BACK_Y+103);   // gauche, sur l'arc
+    T('A2', GOAL_X,          BACK_Y+R);     // sommet du cercle
+    T('A3', GOAL_X+POST+103, BACK_Y+103);   // droite, sur l'arc
+  }
+  save(); renderPC();
+});
+function openStrategyDialog(mode){
+  const board = PC_BOARDS[pcIndex];
+  const d = state.pc[board.id];
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = mode==='save' ? 'Enregistrer la stratégie' : 'Charger une stratégie';
+  body.innerHTML = '';
+
+  if(mode==='load' && state.strategies.every(s=>!s)){
+    body.innerHTML = '<p class="empty">Aucune stratégie enregistrée pour l\'instant.</p>';
+  }
+
+  state.strategies.forEach((s,i)=>{
+    if(mode==='load' && !s) return;
+    const btn = document.createElement('button');
+    btn.textContent = (i+1)+'.  ' + (s ? s.name + '   ' + s.date : 'emplacement libre');
+    if(!s) btn.style.color = 'var(--ink-soft)';
+    btn.addEventListener('click', ()=>{
+      if(mode==='save'){
+        const name = prompt('Nom de la stratégie.\nLaisse vide pour libérer cet emplacement.', s ? s.name : board.title);
+        if(name===null) return;
+        if(name.trim()===''){
+          state.strategies[i] = null;
+        }else{
+          state.strategies[i] = {
+            name: name.trim().slice(0,24),
+            date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
+            tokens: JSON.parse(JSON.stringify(d.tokens)),
+            shapes: JSON.parse(JSON.stringify(d.shapes)),
+            notes: d.notes || ''
+          };
+        }
+        save(); picker.close();
+        flash(name.trim()==='' ? 'Emplacement libéré' : 'Stratégie enregistrée');
+      }else{
+        if(!confirm('Remplacer le schéma affiché par « '+s.name+' » ?')) return;
+        d.tokens = JSON.parse(JSON.stringify(s.tokens));
+        d.shapes = JSON.parse(JSON.stringify(s.shapes));
+        d.notes  = s.notes || '';
+        save(); picker.close(); renderPC();
+      }
+    });
+    body.appendChild(btn);
+  });
+  picker.showModal();
+}
+document.getElementById('btn-save-strat').addEventListener('click', ()=>openStrategyDialog('save'));
+document.getElementById('btn-load-strat').addEventListener('click', ()=>openStrategyDialog('load'));
+
+document.getElementById('btn-undo').addEventListener('click', ()=>{
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  d.shapes.pop(); save(); renderPC();
+});
+document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
+  if(!confirm('Effacer jetons et tracés de ce schéma ?')) return;
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  d.tokens = []; d.shapes = []; save(); renderPC();
+});
+
+/* ==================================================================
+   Rendu global
+================================================================== */
+function sortPlayers(){
+  // tri français : Célian entre Charly et Eric, Léon entre Hugo et Louis
+  state.players.sort((a,b)=>a.name.localeCompare(b.name,'fr',{sensitivity:'base'}));
+}
+
+function render(){
+  sortPlayers();
+  renderNav();
+  if(view==='players') renderPlayers();
+  if(view==='compos')  renderCompo();
+  if(view==='pc')      renderPC();
+  document.getElementById('hdr-sub').textContent =
+    presentPlayers().length + ' présents sur ' + state.players.length + ' joueurs';
+}
+drawPitchLines();
+render();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

@@ -560,6 +560,7 @@ function fillMiniPitch(el, compo, other, role){
     for(let i=0;i<pos.n;i++){
       const key = slotKey(pos.code,i);
       const p = byId(compo.slots[key]);
+      if(!p) continue;
       let cls = '', tag = '';
       if(p){
         const there = keyOf(other, p.id);
@@ -639,12 +640,14 @@ function renderCompo(){
   pitch.querySelectorAll('.slot').forEach(el=>el.remove());
 
   let onField = 0;
+  const complet = onFieldCount() >= MAX_ON_FIELD;   // équipe au complet : plus de postes vides affichés
   POSITIONS.forEach(pos=>{
     for(let i=0;i<pos.n;i++){
       const key = slotKey(pos.code,i);
       const pid = compo.slots[key];
       const p = pid ? byId(pid) : null;
       if(p) onField++;
+      if(!p && complet) continue;
 
       const btn = document.createElement('button');
       btn.className = 'slot' + (p?' filled':'') + (pos.code==='GK'?' gk':'');

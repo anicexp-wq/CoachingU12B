@@ -254,11 +254,13 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <g id="pitch-lines"></g>
         <g id="shapes"></g>
         <g id="tokens"></g>
+        <g id="anim"></g>
       </svg>
       <div class="tools" style="margin-top:10px">
         <button id="btn-add-player">＋ Joueur</button>
         <button id="btn-add-opp">＋ Adversaire</button>
         <button id="btn-preset">Placer les adversaires</button>
+        <button id="btn-play">Lecture</button>
         <button id="btn-undo">Annuler le trait</button>
         <button id="btn-clear-pc">Tout effacer</button>
       </div>
@@ -373,7 +375,7 @@ function renderNav(){
     b.textContent = it.label;
     b.setAttribute('aria-selected', String(it.i===active));
     b.addEventListener('click', ()=>{
-      if(view==='compos') compoIndex = it.i; else pcIndex = it.i;
+      if(view==='compos') compoIndex = it.i; else { playing = false; pcIndex = it.i; }
       render();
     });
     sub.appendChild(b);
@@ -833,6 +835,7 @@ function toSvg(evt){ return svgPoint(board, evt); }
 let drag = null, tempLine = null;
 
 board.addEventListener('pointerdown', e=>{
+  if(playing) return;
   const d = state.pc[PC_BOARDS[pcIndex].id];
   const tokenEl = e.target.closest('[data-tid]');
   const shapeEl = e.target.closest('[data-sid]');
@@ -964,6 +967,94 @@ document.getElementById('btn-preset').addEventListener('click', ()=>{
   }
   save(); renderPC();
 });
+/* ---------- animation du schéma ---------- */
+let playing = false, animRAF = null;
+
+function nearestToken(tokens, x, y){
+  let best = null, bd = 70;   // au-delà de 7 m, la flèche ne part de personne
+  tokens.forEach(t=>{
+    const dd = Math.hypot(t.x-x, t.y-y);
+    if(dd < bd){ bd = dd; best = t; }
+  });
+  return best;
+}
+function tokenMover(t){
+  const g = document.querySelector('[data-tid="'+t.id+'"]');
+  const c = g && g.querySelector('circle');
+  const lbl = g && g.querySelector('text');
+  return (x,y)=>{
+    t.x = x; t.y = y;
+    if(c){ c.setAttribute('cx',x); c.setAttribute('cy',y); }
+    if(lbl){ lbl.setAttribute('x',x); lbl.setAttribute('y',y+4); }
+  };
+}
+function makeBall(layer, x, y){
+  const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c.setAttribute('r', 8);
+  c.setAttribute('fill', '#FFFFFF');
+  c.setAttribute('stroke', '#10201B');
+  c.setAttribute('stroke-width', 2);
+  c.setAttribute('cx', x); c.setAttribute('cy', y);
+  layer.appendChild(c);
+  return (nx,ny)=>{ c.setAttribute('cx',nx); c.setAttribute('cy',ny); };
+}
+
+function playPC(){
+  if(playing){ playing = false; return; }
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  if(!d.shapes.length){ flash('Trace d\'abord des flèches'); return; }
+
+  const home = JSON.parse(JSON.stringify(d.tokens));
+  const anim = document.getElementById('anim');
+  const btn = document.getElementById('btn-play');
+  anim.innerHTML = '';
+  playing = true;
+  btn.textContent = 'Arrêter';
+
+  let ball = null, i = 0;
+
+  const finish = ()=>{
+    playing = false;
+    if(animRAF) cancelAnimationFrame(animRAF);
+    btn.textContent = 'Lecture';
+    d.tokens = home;              // tout le monde revient à sa place
+    anim.innerHTML = '';
+    renderPC();
+  };
+
+  const step = ()=>{
+    if(!playing) return finish();
+    if(i >= d.shapes.length){ setTimeout(finish, 900); return; }
+    const s = d.shapes[i++];
+    const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
+    const dur = s.type==='tir' ? Math.max(260, len*2.2) : Math.min(1500, Math.max(380, len*5));
+
+    let move = null;
+    if(s.type==='run'){
+      const t = nearestToken(d.tokens, s.x1, s.y1);
+      if(t) move = tokenMover(t);
+    }else{
+      // passe ou tir : la balle apparaît au premier mouvement de balle
+      if(!ball) ball = makeBall(anim, s.x1, s.y1);
+      move = ball;
+      move(s.x1, s.y1);
+    }
+
+    const t0 = performance.now();
+    const frame = now =>{
+      if(!playing) return finish();
+      const k = Math.min(1, (now - t0) / dur);
+      const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;   // démarre et freine en douceur
+      if(move) move(s.x1 + (s.x2-s.x1)*e, s.y1 + (s.y2-s.y1)*e);
+      if(k < 1) animRAF = requestAnimationFrame(frame);
+      else step();
+    };
+    animRAF = requestAnimationFrame(frame);
+  };
+  step();
+}
+document.getElementById('btn-play').addEventListener('click', playPC);
+
 function openStrategyDialog(mode){
   const board = PC_BOARDS[pcIndex];
   const d = state.pc[board.id];

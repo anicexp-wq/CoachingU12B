@@ -1248,9 +1248,11 @@ function renameToken(t){
   save(); renderPC();
 }
 
-function addToken(label, team, x, y){
+function addToken(label, team, x, y, pid){
   const d = state.pc[PC_BOARDS[pcIndex].id];
-  d.tokens.push({id:uid(), label, team, x, y});
+  const t = {id:uid(), label, team, x, y};
+  if(pid) t.pid = pid;      // un joueur ne peut figurer qu'une fois par schéma
+  d.tokens.push(t);
   save(); renderPC();
 }
 document.getElementById('btn-add-opp').addEventListener('click', ()=>{
@@ -1263,15 +1265,21 @@ document.getElementById('btn-add-player').addEventListener('click', ()=>{
   const body = document.getElementById('picker-body');
   head.textContent = 'Ajouter un joueur au schéma';
   body.innerHTML = '';
-  const list = presentPlayers();
-  if(list.length===0){
+  const d = state.pc[PC_BOARDS[pcIndex].id];
+  const dejaLa = p => d.tokens.some(t =>
+    t.pid ? t.pid === p.id : t.label === (p.num || initials(p.name)));
+  const list = presentPlayers().filter(p=>!dejaLa(p));
+
+  if(presentPlayers().length===0){
     body.innerHTML = '<p class="empty">Coche d\'abord les joueurs présents dans l\'onglet Joueurs.</p>';
+  }else if(list.length===0){
+    body.innerHTML = '<p class="empty">Tous les présents sont déjà sur ce schéma.</p>';
   }
   list.forEach(p=>{
     const b = document.createElement('button');
     b.textContent = (p.num? p.num+'  ':'') + p.name;
     b.addEventListener('click', ()=>{
-      addToken(p.num || initials(p.name), 'us', 275, 200);
+      addToken(p.num || initials(p.name), 'us', 275, 200, p.id);
       picker.close();
     });
     body.appendChild(b);
@@ -1456,7 +1464,7 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
 /* ==================================================================
    Partage entre coaches
 ================================================================== */
-const API = 'https://script.google.com/macros/s/AKfycbxTVzg7D0pu9Ks1r6DNDyGlDxZK_NZWTMnkWsJgu4h0eVL3DBUsLSgZ7sPHCIQM6EYCWQ/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzmo10NPBNWYnG8RkK1yIlTUJlKSCOWFrw8ivlCEi-jLfzKvwQNSbpk9JufG1fJe-acuA/exec';
 const TEAM = (new URLSearchParams(location.search).get('e') || 'u12b1').toLowerCase();
 
 async function apiGet(){
@@ -1465,12 +1473,18 @@ async function apiGet(){
 }
 async function apiPost(body){
   // text/plain : évite la requête préalable CORS que Apps Script ne gère pas
-  const r = await fetch(API, {
-    method: 'POST',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify(Object.assign({equipe: TEAM}, body))
-  });
-  return r.json();
+  const payload = JSON.stringify(Object.assign({equipe: TEAM}, body));
+  const opts = {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: payload};
+  try{
+    const r = await fetch(API, opts);
+    return await r.json();
+  }catch(err){
+    // repli : Apps Script redirige la réponse vers un autre domaine, ce que
+    // certains navigateurs refusent de nous laisser lire. On renvoie quand
+    // même la donnée, sans pouvoir relire la réponse.
+    await fetch(API, Object.assign({mode:'no-cors'}, opts));
+    return {ok:true, aveugle:true};
+  }
 }
 
 function renderShare(){
@@ -1557,7 +1571,7 @@ async function publier(type, nom, data){
       auteurId: state.me.id,
       data
     });
-    flash(res.ok ? 'Publié' : (res.erreur || 'Erreur'));
+    flash(res.aveugle ? 'Envoyé' : (res.ok ? 'Publié' : (res.erreur || 'Erreur')));
   }catch(err){ flash('Pas de réseau'); }
 }
 

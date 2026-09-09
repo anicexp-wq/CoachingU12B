@@ -191,6 +191,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
   <button role="tab" data-view="players" aria-selected="true">Joueurs</button>
   <button role="tab" data-view="compos" aria-selected="false">Compos</button>
   <button role="tab" data-view="pc" aria-selected="false">PC</button>
+  <button role="tab" data-view="share" aria-selected="false">Partage</button>
 </nav>
 
 <nav class="sub" id="subnav" hidden></nav>
@@ -269,6 +270,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button class="btn" id="btn-save-compo">Enregistrer la compo</button>
         <button class="btn" id="btn-load-compo">Charger une compo</button>
         <button class="btn ghost" id="btn-reset-pos">Replacer les postes</button>
+        <button class="btn" id="btn-publish-compo">Publier</button>
       </div>
     </div>
     <div class="card" id="card-bench">
@@ -306,12 +308,38 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       <div class="tools" style="margin-top:6px">
         <button id="btn-save-strat">Enregistrer la stratégie</button>
         <button id="btn-load-strat">Charger une stratégie</button>
+        <button id="btn-publish-pc">Publier</button>
       </div>
       <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
     </div>
     <div class="card">
       <div class="rowbar"><h2>Consignes</h2></div>
       <textarea id="pc-notes" placeholder="Qui pousse, qui stoppe, qui frappe, les rebonds…"></textarea>
+    </div>
+  </section>
+  <!-- ============ PARTAGE ============ -->
+  <section id="view-share" hidden>
+    <div class="card">
+      <div class="rowbar"><h2>Moi</h2><span class="count" id="team-code">u12b1</span></div>
+      <p class="muted">Ton prénom apparaît à côté de ce que tu publies.</p>
+      <input id="me-name" placeholder="Ton prénom" style="width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;margin-top:8px;background:var(--surface)">
+    </div>
+
+    <div class="card">
+      <div class="rowbar">
+        <h2>Bibliothèque de l'équipe</h2>
+        <button class="btn primary" id="btn-refresh">Actualiser</button>
+      </div>
+      <ul class="players" id="pub-list"></ul>
+      <p class="empty" id="pub-empty" hidden>Rien de publié pour l'instant. Appuie sur Actualiser.</p>
+    </div>
+
+    <div class="card">
+      <div class="rowbar"><h2>Liste des joueurs</h2></div>
+      <p class="muted">La liste est commune à l'équipe. Les présences du jour restent sur ton téléphone.</p>
+      <div class="rowbar" style="margin:10px 0 0">
+        <button class="btn" id="btn-push-players">Envoyer ma liste</button>
+      </div>
     </div>
   </section>
 </main>
@@ -373,6 +401,8 @@ function migrate(s){
   }
   s.strategies = s.strategies || [null,null,null,null,null];
   s.compoSaves = s.compoSaves || [null,null,null,null,null];
+  s.me = s.me || {id: uid()+uid(), name: ''};
+  s.pubs = s.pubs || [];
   s.pc = s.pc || {};
   PC_BOARDS.forEach(b=>{
     s.pc[b.id] = s.pc[b.id] || {tokens:[], shapes:[], notes:''};
@@ -402,10 +432,11 @@ function renderNav(){
   document.getElementById('view-players').hidden = view!=='players';
   document.getElementById('view-compos').hidden  = view!=='compos';
   document.getElementById('view-pc').hidden      = view!=='pc';
+  document.getElementById('view-share').hidden   = view!=='share';
 
   const sub = document.getElementById('subnav');
   sub.innerHTML = '';
-  if(view==='players'){ sub.hidden = true; return; }
+  if(view==='players' || view==='share'){ sub.hidden = true; return; }
   sub.hidden = false;
   const items = view==='compos'
     ? state.compos.map((c,i)=>({label:c.name, i})).concat([{label:'Changements', i:5}])
@@ -1423,6 +1454,166 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
 });
 
 /* ==================================================================
+   Partage entre coaches
+================================================================== */
+const API = 'https://script.google.com/macros/s/AKfycbxTVzg7D0pu9Ks1r6DNDyGlDxZK_NZWTMnkWsJgu4h0eVL3DBUsLSgZ7sPHCIQM6EYCWQ/exec';
+const TEAM = (new URLSearchParams(location.search).get('e') || 'u12b1').toLowerCase();
+
+async function apiGet(){
+  const r = await fetch(API + '?e=' + encodeURIComponent(TEAM));
+  return r.json();
+}
+async function apiPost(body){
+  // text/plain : évite la requête préalable CORS que Apps Script ne gère pas
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: {'Content-Type': 'text/plain;charset=utf-8'},
+    body: JSON.stringify(Object.assign({equipe: TEAM}, body))
+  });
+  return r.json();
+}
+
+function renderShare(){
+  document.getElementById('team-code').textContent = TEAM;
+  const inp = document.getElementById('me-name');
+  if(document.activeElement !== inp) inp.value = state.me.name || '';
+
+  const ul = document.getElementById('pub-list');
+  ul.innerHTML = '';
+  state.pubs.forEach(pub=>{
+    const li = document.createElement('li');
+    const j = document.createElement('div');
+    j.className = 'jersey';
+    j.textContent = pub.type==='pc' ? 'PC' : 'C';
+    li.appendChild(j);
+
+    const n = document.createElement('div');
+    n.className = 'pname';
+    n.innerHTML = escapeHtml(pub.nom) +
+      '<br><span class="muted">' + escapeHtml(pub.auteur || '?') + ' · ' +
+      escapeHtml((pub.maj||'').slice(8,10) + '/' + (pub.maj||'').slice(5,7)) + '</span>';
+    li.appendChild(n);
+
+    const load = document.createElement('button');
+    load.className = 'btn';
+    load.textContent = 'Charger';
+    load.addEventListener('click', ()=>loadPublication(pub));
+    li.appendChild(load);
+
+    if(pub.auteurId === state.me.id){
+      const del = document.createElement('button');
+      del.className = 'icon-btn';
+      del.textContent = '✕';
+      del.addEventListener('click', ()=>retirerPublication(pub));
+      li.appendChild(del);
+    }
+    ul.appendChild(li);
+  });
+  document.getElementById('pub-empty').hidden = state.pubs.length>0;
+}
+
+document.getElementById('me-name').addEventListener('change', e=>{
+  state.me.name = e.target.value.trim().slice(0,20);
+  save();
+});
+
+document.getElementById('btn-refresh').addEventListener('click', async ()=>{
+  flash('Connexion…');
+  try{
+    const res = await apiGet();
+    if(!res.ok) return flash(res.erreur || 'Erreur du serveur');
+    state.pubs = res.publications || [];
+    if(res.joueurs && res.joueurs.length){
+      const presences = {};
+      state.players.forEach(p=>{ presences[p.id] = p.present; });
+      state.players = res.joueurs.map(j=>({
+        id: j.id, name: j.name, num: j.num || '',
+        present: presences[j.id] !== undefined ? presences[j.id] : true
+      }));
+    }
+    save(); render(); flash('À jour');
+  }catch(err){ flash('Pas de réseau'); }
+});
+
+document.getElementById('btn-push-players').addEventListener('click', async ()=>{
+  if(!confirm('Remplacer la liste de l\'équipe par la tienne ?')) return;
+  try{
+    const res = await apiPost({action:'joueurs', joueurs: state.players.map(p=>({id:p.id, name:p.name, num:p.num}))});
+    flash(res.ok ? 'Liste envoyée' : (res.erreur || 'Erreur'));
+  }catch(err){ flash('Pas de réseau'); }
+});
+
+async function publier(type, nom, data){
+  if(!state.me.name){
+    flash('Indique ton prénom dans Partage');
+    view = 'share'; render(); return;
+  }
+  try{
+    const res = await apiPost({
+      action:'publier',
+      id: state.me.id + '-' + type + '-' + nom.toLowerCase().replace(/[^a-z0-9]+/g,'-'),
+      type, nom,
+      auteur: state.me.name,
+      auteurId: state.me.id,
+      data
+    });
+    flash(res.ok ? 'Publié' : (res.erreur || 'Erreur'));
+  }catch(err){ flash('Pas de réseau'); }
+}
+
+document.getElementById('btn-publish-compo').addEventListener('click', ()=>{
+  const c = state.compos[compoIndex];
+  publier('compo', c.name, {slots:c.slots, shapes:c.shapes||[], pos:c.pos||{}});
+});
+document.getElementById('btn-publish-pc').addEventListener('click', ()=>{
+  const b = PC_BOARDS[pcIndex], d = state.pc[b.id];
+  publier('pc', b.title, {tokens:d.tokens, shapes:d.shapes, notes:d.notes||''});
+});
+
+function loadPublication(pub){
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Charger « ' + pub.nom + ' » dans…';
+  body.innerHTML = '';
+  const cibles = pub.type==='pc'
+    ? PC_BOARDS.map((b,i)=>({label:b.title, i}))
+    : state.compos.map((c,i)=>({label:c.name, i}));
+  cibles.forEach(t=>{
+    const b = document.createElement('button');
+    b.textContent = t.label;
+    b.addEventListener('click', ()=>{
+      if(pub.type==='pc'){
+        const d = state.pc[PC_BOARDS[t.i].id];
+        d.tokens = JSON.parse(JSON.stringify(pub.data.tokens || []));
+        d.shapes = JSON.parse(JSON.stringify(pub.data.shapes || []));
+        d.notes  = pub.data.notes || '';
+        pcIndex = t.i; view = 'pc';
+      }else{
+        const c = state.compos[t.i];
+        c.slots  = JSON.parse(JSON.stringify(pub.data.slots || {}));
+        c.shapes = JSON.parse(JSON.stringify(pub.data.shapes || []));
+        c.pos    = JSON.parse(JSON.stringify(pub.data.pos || {}));
+        compoIndex = t.i; view = 'compos';
+      }
+      save(); picker.close(); render();
+      flash('Copié chez toi');
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+}
+
+async function retirerPublication(pub){
+  if(!confirm('Retirer « ' + pub.nom + ' » de la bibliothèque ?')) return;
+  try{
+    const res = await apiPost({action:'retirer', id:pub.id, auteurId:state.me.id});
+    if(!res.ok) return flash(res.erreur || 'Erreur');
+    state.pubs = state.pubs.filter(x=>x.id!==pub.id);
+    save(); render(); flash('Retiré');
+  }catch(err){ flash('Pas de réseau'); }
+}
+
+/* ==================================================================
    Rendu global
 ================================================================== */
 function sortPlayers(){
@@ -1436,6 +1627,7 @@ function render(){
   if(view==='players') renderPlayers();
   if(view==='compos')  (compoIndex===5 ? renderCompare() : renderCompo());
   if(view==='pc')      renderPC();
+  if(view==='share')   renderShare();
   document.getElementById('hdr-sub').textContent =
     presentPlayers().length + ' présents sur ' + state.players.length + ' joueurs';
 }

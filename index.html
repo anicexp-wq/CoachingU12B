@@ -1468,7 +1468,7 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
 const API = 'https://script.google.com/macros/s/AKfycbzmo10NPBNWYnG8RkK1yIlTUJlKSCOWFrw8ivlCEi-jLfzKvwQNSbpk9JufG1fJe-acuA/exec';
 const TEAM = (new URLSearchParams(location.search).get('e') || 'u12b1').toLowerCase();
 
-function apiGet(){
+function apiGetScript(){
   // chargement par balise script : insensible aux restrictions inter-domaines
   return new Promise((resolve, reject)=>{
     const cb = 'cb' + Math.random().toString(36).slice(2,9);
@@ -1476,10 +1476,30 @@ function apiGet(){
     const stop = setTimeout(()=>{ nettoyer(); reject(new Error('délai dépassé')); }, 15000);
     function nettoyer(){ clearTimeout(stop); delete window[cb]; s.remove(); }
     window[cb] = data =>{ nettoyer(); resolve(data); };
-    s.onerror = ()=>{ nettoyer(); reject(new Error('serveur injoignable')); };
+    s.onerror = ()=>{ nettoyer(); reject(new Error('script refusé')); };
     s.src = API + '?e=' + encodeURIComponent(TEAM) + '&callback=' + cb;
     document.head.appendChild(s);
   });
+}
+
+async function apiGetFetch(){
+  const r = await fetch(API + '?e=' + encodeURIComponent(TEAM));
+  const txt = await r.text();
+  try{ return JSON.parse(txt); }
+  catch(e){ throw new Error('réponse illisible (' + r.status + ')'); }
+}
+
+async function apiGet(){
+  // deux voies, l'une après l'autre : selon le navigateur, l'une des deux passe
+  try{
+    return await apiGetScript();
+  }catch(e1){
+    try{
+      return await apiGetFetch();
+    }catch(e2){
+      throw new Error(e1.message + ' / ' + (e2.message || 'appel direct refusé'));
+    }
+  }
 }
 
 async function apiPost(body){

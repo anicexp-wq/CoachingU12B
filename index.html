@@ -1469,7 +1469,13 @@ const TEAM = (new URLSearchParams(location.search).get('e') || 'u12b1').toLowerC
 
 async function apiGet(){
   const r = await fetch(API + '?e=' + encodeURIComponent(TEAM));
-  return r.json();
+  const txt = await r.text();
+  try{
+    return JSON.parse(txt);
+  }catch(e){
+    // le serveur a répondu, mais pas du JSON : mauvaise adresse ou page d'erreur
+    return {ok:false, erreur:'réponse illisible (' + r.status + ')'};
+  }
 }
 async function apiPost(body){
   // text/plain : évite la requête préalable CORS que Apps Script ne gère pas
@@ -1536,6 +1542,7 @@ document.getElementById('btn-refresh').addEventListener('click', async ()=>{
   try{
     const res = await apiGet();
     if(!res.ok) return flash(res.erreur || 'Erreur du serveur');
+    // adresse jointe et réponse valide
     state.pubs = res.publications || [];
     if(res.joueurs && res.joueurs.length){
       const presences = {};

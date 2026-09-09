@@ -323,6 +323,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       <div class="rowbar"><h2>Moi</h2><span class="count" id="team-code">u12b1</span></div>
       <p class="muted">Ton prénom apparaît à côté de ce que tu publies.</p>
       <input id="me-name" placeholder="Ton prénom" style="width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;margin-top:8px;background:var(--surface)">
+      <p class="muted" style="margin:8px 0 0">Serveur : <span id="api-tail"></span></p>
     </div>
 
     <div class="card">
@@ -1499,6 +1500,7 @@ async function apiPost(body){
 
 function renderShare(){
   document.getElementById('team-code').textContent = TEAM;
+  document.getElementById('api-tail').textContent = '…' + API.slice(-18);
   const inp = document.getElementById('me-name');
   if(document.activeElement !== inp) inp.value = state.me.name || '';
 
@@ -1557,7 +1559,7 @@ document.getElementById('btn-refresh').addEventListener('click', async ()=>{
       }));
     }
     save(); render(); flash('À jour');
-  }catch(err){ flash('Pas de réseau'); }
+  }catch(err){ flash('Échec : ' + (err.message || err)); }
 });
 
 document.getElementById('btn-push-players').addEventListener('click', async ()=>{

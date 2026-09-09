@@ -307,7 +307,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button id="btn-save-strat">Enregistrer la stratégie</button>
         <button id="btn-load-strat">Charger une stratégie</button>
       </div>
-      <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Touche une flèche pour changer le mot écrit dessus. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
+      <p class="muted" style="margin:10px 0 0">Touche un jeton pour le renommer, glisse-le pour le déplacer. Le but est dessiné plus large que la réalité pour que les cinq défenseurs y tiennent.</p>
     </div>
     <div class="card">
       <div class="rowbar"><h2>Consignes</h2></div>
@@ -808,7 +808,7 @@ let cdrag = null, ctemp = null;
 csvg.addEventListener('pointerdown', e=>{
   if(compoPlaying) return;
   const compo = state.compos[compoIndex];
-  const hit = e.target.closest('[data-sid]');
+  const hit = e.target.closest('[data-sid]');   // utile uniquement pour la gomme
   if(compoMode==='erase'){
     if(hit){
       compo.shapes = compo.shapes.filter(s=>s.id!==hit.dataset.sid);
@@ -817,9 +817,7 @@ csvg.addEventListener('pointerdown', e=>{
     return;
   }
   const p = svgPoint(csvg, e);
-  // on démarre toujours un trait : c'est la longueur au relâchement qui
-  // dira s'il s'agissait d'un tracé ou d'un simple appui sur une flèche
-  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y, hitId: hit ? hit.dataset.sid : null};
+  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y};
   ctemp = startTempLine(csvg, 'compo-shapes', compoMode, p);
   csvg.setPointerCapture(e.pointerId);
 });
@@ -832,17 +830,12 @@ csvg.addEventListener('pointermove', e=>{
 });
 csvg.addEventListener('pointerup', ()=>{
   if(!cdrag) return;
-  const drawn = Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18;
-  const hitId = cdrag.hitId;
-  if(drawn){
+  if(Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18){
     state.compos[compoIndex].shapes.push({id:uid(), type:compoMode, x1:cdrag.x1, y1:cdrag.y1, x2:cdrag.x2, y2:cdrag.y2});
     save();
   }
   cdrag = null; ctemp = null;
   renderCompoShapes();
-  if(!drawn && hitId){
-    labelShape(state.compos[compoIndex].shapes.find(s=>s.id===hitId), renderCompoShapes);
-  }
 });
 
 /* --- lecture animée d'une compo --- */
@@ -1085,7 +1078,7 @@ function drawPitchLines(){
 function shapeMarkup(s){
   const st = TRACE[s.type] || TRACE.run;
   const dash = st.dash ? `stroke-dasharray="${st.dash}"` : '';
-  const txt = s.label || st.label;
+  const txt = st.label;
   const dx = s.x2-s.x1, dy = s.y2-s.y1;
   const rad = Math.atan2(dy, dx);
   let deg = rad*180/Math.PI;
@@ -1170,10 +1163,7 @@ board.addEventListener('pointerdown', e=>{
   }
 
   if(pcMode==='move'){
-    if(!tokenEl){
-      if(shapeEl) labelShape(d.shapes.find(x=>x.id===shapeEl.dataset.sid));
-      return;
-    }
+    if(!tokenEl) return;
     const t = d.tokens.find(x=>x.id===tokenEl.dataset.tid);
     const p = toSvg(e);
     drag = {t, dx:t.x-p.x, dy:t.y-p.y, moved:false};
@@ -1217,15 +1207,6 @@ board.addEventListener('pointerup', e=>{
   }
   drag = null; tempLine = null;
 });
-
-function labelShape(s, redraw){
-  if(!s) return;
-  const def = (TRACE[s.type] || TRACE.run).label;
-  const v = prompt('Texte écrit le long de la flèche.\nLaisse vide pour revenir à « '+def+' ».', s.label || def);
-  if(v===null) return;
-  if(v.trim()==='' || v.trim()===def) delete s.label; else s.label = v.trim();
-  save(); (redraw || renderPC)();
-}
 
 function renameToken(t){
   const v = prompt('Nom du jeton (4 caractères max affichés). Laisse vide pour le supprimer.', t.label);

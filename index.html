@@ -816,12 +816,10 @@ csvg.addEventListener('pointerdown', e=>{
     }
     return;
   }
-  if(hit){
-    labelShape(compo.shapes.find(s=>s.id===hit.dataset.sid), renderCompoShapes);
-    return;
-  }
   const p = svgPoint(csvg, e);
-  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y};
+  // on démarre toujours un trait : c'est la longueur au relâchement qui
+  // dira s'il s'agissait d'un tracé ou d'un simple appui sur une flèche
+  cdrag = {x1:p.x, y1:p.y, x2:p.x, y2:p.y, hitId: hit ? hit.dataset.sid : null};
   ctemp = startTempLine(csvg, 'compo-shapes', compoMode, p);
   csvg.setPointerCapture(e.pointerId);
 });
@@ -834,12 +832,17 @@ csvg.addEventListener('pointermove', e=>{
 });
 csvg.addEventListener('pointerup', ()=>{
   if(!cdrag) return;
-  if(Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18){
-    state.compos[compoIndex].shapes.push({id:uid(), type:compoMode, ...cdrag});
+  const drawn = Math.hypot(cdrag.x2-cdrag.x1, cdrag.y2-cdrag.y1) > 18;
+  const hitId = cdrag.hitId;
+  if(drawn){
+    state.compos[compoIndex].shapes.push({id:uid(), type:compoMode, x1:cdrag.x1, y1:cdrag.y1, x2:cdrag.x2, y2:cdrag.y2});
     save();
   }
   cdrag = null; ctemp = null;
   renderCompoShapes();
+  if(!drawn && hitId){
+    labelShape(state.compos[compoIndex].shapes.find(s=>s.id===hitId), renderCompoShapes);
+  }
 });
 
 /* --- lecture animée d'une compo --- */

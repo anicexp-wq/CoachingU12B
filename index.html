@@ -1467,16 +1467,20 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
 const API = 'https://script.google.com/macros/s/AKfycbzmo10NPBNWYnG8RkK1yIlTUJlKSCOWFrw8ivlCEi-jLfzKvwQNSbpk9JufG1fJe-acuA/exec';
 const TEAM = (new URLSearchParams(location.search).get('e') || 'u12b1').toLowerCase();
 
-async function apiGet(){
-  const r = await fetch(API + '?e=' + encodeURIComponent(TEAM));
-  const txt = await r.text();
-  try{
-    return JSON.parse(txt);
-  }catch(e){
-    // le serveur a répondu, mais pas du JSON : mauvaise adresse ou page d'erreur
-    return {ok:false, erreur:'réponse illisible (' + r.status + ')'};
-  }
+function apiGet(){
+  // chargement par balise script : insensible aux restrictions inter-domaines
+  return new Promise((resolve, reject)=>{
+    const cb = 'cb' + Math.random().toString(36).slice(2,9);
+    const s = document.createElement('script');
+    const stop = setTimeout(()=>{ nettoyer(); reject(new Error('délai dépassé')); }, 15000);
+    function nettoyer(){ clearTimeout(stop); delete window[cb]; s.remove(); }
+    window[cb] = data =>{ nettoyer(); resolve(data); };
+    s.onerror = ()=>{ nettoyer(); reject(new Error('serveur injoignable')); };
+    s.src = API + '?e=' + encodeURIComponent(TEAM) + '&callback=' + cb;
+    document.head.appendChild(s);
+  });
 }
+
 async function apiPost(body){
   // text/plain : évite la requête préalable CORS que Apps Script ne gère pas
   const payload = JSON.stringify(Object.assign({equipe: TEAM}, body));

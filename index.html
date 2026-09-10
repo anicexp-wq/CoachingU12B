@@ -165,7 +165,7 @@ ul.changes li{padding:9px 2px;border-bottom:1px solid var(--stroke);font-size:14
 ul.changes li:last-child{border-bottom:0}
 ul.changes .where{font-weight:700}
 .bench{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
-.chip{background:var(--page);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
+.chip{background:var(--page);border:1px solid var(--stroke);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;touch-action:none}
 
 /* ---------- PC board ---------- */
 .tools{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
@@ -684,6 +684,19 @@ function zoneDe(pos){
   return best;
 }
 
+function positionLibre(){
+  const marks = state.reference.marks;
+  const occupe = (x,y)=>marks.some(m=>Math.abs(m.x-x) < 13 && Math.abs(m.y-y) < 6);
+  for(let l=0; l<13; l++){
+    for(let c=0; c<6; c++){
+      const x = 12 + c*15, y = 10 + l*6.5;
+      if(y > 96) continue;
+      if(!occupe(x,y)) return {x, y};
+    }
+  }
+  return {x: 50, y: 50};
+}
+
 function renderReference(){
   ['card-compo','card-bench','card-compare','card-changes'].forEach(id=>document.getElementById(id).hidden = true);
   document.getElementById('card-ref').hidden = false;
@@ -809,11 +822,17 @@ function renderReference(){
           poser(Math.max(3, Math.min(97, (ev.clientX-r.left)/r.width*100)),
                 Math.max(2, Math.min(98, (ev.clientY-r.top)/r.height*100)));
         }else if(!bouge){
-          poser(18 + (k % 5) * 16, 44 + Math.floor(k / 5) * 8);
+          const libre = positionLibre();   // pas de jeton posé sur un autre
+          poser(libre.x, libre.y);
         }
       };
       c.addEventListener('pointermove', onMove);
       c.addEventListener('pointerup', onUp);
+      c.addEventListener('pointercancel', ()=>{
+        c.removeEventListener('pointermove', onMove);
+        c.removeEventListener('pointerup', onUp);
+        ghost.remove();
+      });
     });
     bench.appendChild(c);
   });

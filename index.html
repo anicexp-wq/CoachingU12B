@@ -84,13 +84,10 @@ section[hidden]{display:none}
 .btn{border:1px solid var(--stroke);background:var(--surface);border-radius:10px;padding:9px 13px;font-size:14px;font-weight:600}
 .btn.primary{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
 .btn.chip.on{background:#2ECC71;border-color:#2ECC71;color:#0B3D22}
-.slot.sel .disc{
-  background:#2ECC71;color:#06301A;border-color:#fff;
-  transform:scale(1.12);
-  box-shadow:0 0 0 3px rgba(6,48,26,.55), 0 2px 8px rgba(0,0,0,.35);
-}
-.slot.sel .lbl{color:#BFF7D6;font-weight:800}
 .slot.off{opacity:.32}
+#pitch-ref .slot{width:64px}
+#pitch-ref .disc{width:44px;height:44px;font-size:16px;border-width:2px}
+#pitch-ref .lbl{font-size:11.5px}
 .ghost{background:transparent}
 .btn.danger{color:var(--club-dark);border-color:#efc3cb}
 .btn:active{transform:translateY(1px)}
@@ -134,6 +131,13 @@ li.present .switch::after{transform:translateX(21px)}
 }
 .slot.filled .disc{background:var(--us);border-color:#fff;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .slot.gk.filled .disc{background:var(--ball);color:#221B00;border-color:#fff}
+/* sélection : placé après les règles de couleur pour l'emporter sur elles */
+.slot.sel.filled .disc{
+  background:#2ECC71;color:#06301A;border-color:#fff;
+  transform:scale(1.14);
+  box-shadow:0 0 0 3px rgba(6,48,26,.55), 0 2px 8px rgba(0,0,0,.35);
+}
+.slot.sel.filled .lbl{color:#BFF7D6;font-weight:800}
 .slot .lbl{display:block;font-size:11.5px;margin-top:3px;text-shadow:0 1px 2px rgba(0,0,0,.5);line-height:1.2}
 .slot.filled .lbl{font-weight:650}
 
@@ -391,10 +395,10 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 const KEY = 'grezhc-u12b1-coach-v1';
 const uid = () => Math.random().toString(36).slice(2,9);
 const POSITIONS = [
-  {code:'ATT', label:'Attaque',  n:3, y:31, xs:[24,50,76]},   // dans le camp adverse
-  {code:'MID', label:'Milieu',   n:3, y:52, xs:[19,50,81]},   // autour de la ligne médiane
-  {code:'DEF', label:'Défense',  n:3, y:72, xs:[24,50,76]},
-  {code:'GK',  label:'Gardien',  n:1, y:93, xs:[50]}
+  {code:'ATT', label:'Attaque',  n:3, y:21, xs:[16,50,84]},   // haut du camp adverse
+  {code:'MID', label:'Milieu',   n:3, y:46, xs:[13,50,87]},   // largeur maximale au milieu
+  {code:'DEF', label:'Défense',  n:3, y:69, xs:[16,50,84]},
+  {code:'GK',  label:'Gardien',  n:1, y:90, xs:[50]}
 ];
 const MAX_ON_FIELD = 8;
 
@@ -668,9 +672,9 @@ function zoneCenters(){
 }
 function zonesMarkup(){
   return zoneCenters().map(z=>`
-    <circle cx="${z.x}" cy="${z.y}" r="62" fill="rgba(255,255,255,.07)"
+    <circle cx="${z.x}" cy="${z.y}" r="88" fill="rgba(255,255,255,.07)"
             stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-dasharray="8 8"/>
-    <text x="${z.x}" y="${z.y+80}" text-anchor="middle" font-size="20"
+    <text x="${z.x}" y="${z.y+106}" text-anchor="middle" font-size="20"
           fill="rgba(255,255,255,.75)" font-family="system-ui,sans-serif" font-weight="600"
           >${z.label}</text>`).join('');
 }

@@ -83,7 +83,15 @@ section[hidden]{display:none}
 .count.warn{background:var(--slate)}
 .btn{border:1px solid var(--stroke);background:var(--surface);border-radius:10px;padding:9px 13px;font-size:14px;font-weight:600}
 .btn.primary{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
-.btn.ghost{background:transparent}
+.btn.chip.on{background:#2ECC71;border-color:#2ECC71;color:#0B3D22}
+.slot.sel .disc{
+  background:#2ECC71;color:#06301A;border-color:#fff;
+  transform:scale(1.12);
+  box-shadow:0 0 0 3px rgba(6,48,26,.55), 0 2px 8px rgba(0,0,0,.35);
+}
+.slot.sel .lbl{color:#BFF7D6;font-weight:800}
+.slot.off{opacity:.32}
+.ghost{background:transparent}
 .btn.danger{color:var(--club-dark);border-color:#efc3cb}
 .btn:active{transform:translateY(1px)}
 .muted{color:var(--ink-soft);font-size:13.5px}
@@ -132,6 +140,13 @@ li.present .switch::after{transform:translateX(21px)}
 .pitch .overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none;pointer-events:none}
 .pitch.drawing .overlay{pointer-events:auto}
 .pitch.drawing .slot{pointer-events:none}
+.ghost{position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.zone-row{padding:10px 0;border-bottom:1px solid var(--stroke)}
+.zone-row:last-of-type{border-bottom:0}
+.zone-row h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--ink-soft);letter-spacing:.02em}
+.zone-row .bench{margin:0}
+.chip.sel{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
+.chip.off{opacity:.45}
 .mini{height:34vh;max-height:330px;width:auto;aspect-ratio:550/914;margin:0 auto}
 .mini .slot{width:60px}
 .mini .disc{width:36px;height:36px;font-size:13px;border-width:2px}
@@ -225,6 +240,24 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 
   <!-- ============ COMPOS ============ -->
   <section id="view-compos" hidden>
+    <div class="card" id="card-ref" hidden>
+      <div class="rowbar">
+        <h2>Postes de référence</h2>
+        <span class="count" id="ref-count">0</span>
+      </div>
+      <p class="muted" style="margin:0 0 10px" id="ref-hint"></p>
+      <div class="pitch" id="pitch-ref"></div>
+      <div class="bench" id="ref-bench" style="margin-top:12px"></div>
+      <div class="rowbar" style="margin:12px 0 0" id="ref-actions">
+        <button class="btn primary" id="btn-push">Composer une équipe</button>
+        <button class="btn" id="btn-publish-ref">Publier</button>
+        <button class="btn danger" id="btn-clear-ref">Vider</button>
+      </div>
+      <div class="rowbar" style="margin:12px 0 0" id="push-actions" hidden>
+        <button class="btn primary" id="btn-push-go">Envoyer vers…</button>
+        <button class="btn ghost" id="btn-push-cancel">Annuler</button>
+      </div>
+    </div>
     <div class="card" id="card-compare" hidden>
       <div class="pitch-title"><span>Avant</span><select id="cmp-a"></select></div>
       <div class="pitch mini" id="pitch-a"></div>
@@ -402,6 +435,16 @@ function migrate(s){
   }
   s.strategies = s.strategies || [null,null,null,null,null];
   s.compoSaves = s.compoSaves || [null,null,null,null,null];
+  s.reference = s.reference || {};
+  if(!s.reference.marks){
+    // reprise de l'ancien format : une seule position par joueur
+    s.reference.marks = [];
+    var anciennes = s.reference.pos || {};
+    Object.keys(anciennes).forEach(function(pid){
+      s.reference.marks.push({id: uid(), pid: pid, x: anciennes[pid].x, y: anciennes[pid].y});
+    });
+    delete s.reference.pos;
+  }
   s.me = s.me || {id: uid()+uid(), name: ''};
   s.pubs = s.pubs || [];
   s.pc = s.pc || {};
@@ -440,7 +483,7 @@ function renderNav(){
   if(view==='players' || view==='share'){ sub.hidden = true; return; }
   sub.hidden = false;
   const items = view==='compos'
-    ? state.compos.map((c,i)=>({label:c.name, i})).concat([{label:'Changements', i:5}])
+    ? state.compos.map((c,i)=>({label:c.name, i})).concat([{label:'Changements', i:5}, {label:'Référence', i:6}])
     : PC_BOARDS.map((b,i)=>({label:b.title.replace('PC attaque','Attaque ').replace('PC défense','Défense'), i}));
   const active = view==='compos' ? compoIndex : pcIndex;
   items.forEach(it=>{
@@ -448,7 +491,7 @@ function renderNav(){
     b.textContent = it.label;
     b.setAttribute('aria-selected', String(it.i===active));
     b.addEventListener('click', ()=>{
-      if(view==='compos'){ compoPlaying = false; compoIndex = it.i; }
+      if(view==='compos'){ compoPlaying = false; pushMode = false; compoIndex = it.i; }
       else { playing = false; pcIndex = it.i; }
       render();
     });
@@ -514,6 +557,7 @@ function editPlayer(p){
   if(name.trim()===''){
     if(confirm('Supprimer '+p.name+' de la liste ?')){
       removeEverywhere(p.id);
+      state.reference.marks = state.reference.marks.filter(m=>m.pid!==p.id);
       state.players = state.players.filter(x=>x.id!==p.id);
       save(); render();
     }
@@ -610,8 +654,239 @@ function fillMiniPitch(el, compo, other, role){
     }
   });
 }
+function zoneCenters(){
+  // centre de chaque zone, dans le repère du terrain (0-550 / 0-914)
+  const z = [];
+  POSITIONS.forEach(pos=>{
+    for(let i=0;i<pos.n;i++){
+      z.push({key: slotKey(pos.code,i), pos, i, label: slotName(pos,i),
+              px: pos.xs[i], py: pos.y,
+              x: pos.xs[i]/100*550, y: pos.y/100*914});
+    }
+  });
+  return z;
+}
+function zonesMarkup(){
+  return zoneCenters().map(z=>`
+    <circle cx="${z.x}" cy="${z.y}" r="62" fill="rgba(255,255,255,.07)"
+            stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-dasharray="8 8"/>
+    <text x="${z.x}" y="${z.y+80}" text-anchor="middle" font-size="20"
+          fill="rgba(255,255,255,.75)" font-family="system-ui,sans-serif" font-weight="600"
+          >${z.label}</text>`).join('');
+}
+function zoneDe(pos){
+  if(!pos) return null;
+  let best = null, bd = Infinity;
+  zoneCenters().forEach(z=>{
+    const d = Math.hypot(z.px-pos.x, (z.py-pos.y)*0.6);   // le terrain est plus haut que large
+    if(d < bd){ bd = d; best = z; }
+  });
+  return best;
+}
+
+function renderReference(){
+  ['card-compo','card-bench','card-compare','card-changes'].forEach(id=>document.getElementById(id).hidden = true);
+  document.getElementById('card-ref').hidden = false;
+
+  const ref = state.reference;
+  const pitch = document.getElementById('pitch-ref');
+  pitch.innerHTML = '<svg class="overlay" viewBox="0 0 550 914" xmlns="http://www.w3.org/2000/svg">'
+                    + pitchLinesMarkup() + zonesMarkup() + '</svg>';
+
+  const complet = Object.keys(pushSel).length >= MAX_ON_FIELD;
+
+  ref.marks.forEach(m=>{
+    const p = byId(m.pid);
+    if(!p) return;
+    const zone = zoneDe(m);
+    const choisi = zone && pushSel[zone.key] === p.id;
+    const ailleurs = !choisi && Object.values(pushSel).indexOf(p.id) !== -1;
+    const eteint = pushMode && !choisi && (complet || ailleurs || !p.present);
+
+    const btn = document.createElement('button');
+    btn.className = 'slot filled' + (choisi ? ' sel' : '') + (eteint ? ' off' : '');
+    btn.style.left = m.x+'%';
+    btn.style.top  = m.y+'%';
+    btn.innerHTML = '<span class="disc">'+(p.num || initials(p.name))+'</span>'
+                  + '<span class="lbl">'+escapeHtml(shortName(p.name))+'</span>';
+
+    let dragged = false;
+    btn.addEventListener('pointerdown', e=>{
+      const rect = pitch.getBoundingClientRect();
+      const x0 = e.clientX, y0 = e.clientY;
+      dragged = false;
+      btn.setPointerCapture(e.pointerId);
+      const onMove = ev=>{
+        if(!dragged && Math.hypot(ev.clientX-x0, ev.clientY-y0) < 8) return;
+        dragged = true;
+        btn.style.left = Math.max(3, Math.min(97, (ev.clientX-rect.left)/rect.width*100))+'%';
+        btn.style.top  = Math.max(2, Math.min(98, (ev.clientY-rect.top)/rect.height*100))+'%';
+      };
+      const onUp = ()=>{
+        btn.removeEventListener('pointermove', onMove);
+        btn.removeEventListener('pointerup', onUp);
+        if(dragged){
+          m.x = parseFloat(btn.style.left);
+          m.y = parseFloat(btn.style.top);
+          save(); render();
+        }
+      };
+      btn.addEventListener('pointermove', onMove);
+      btn.addEventListener('pointerup', onUp);
+    });
+
+    btn.addEventListener('click', ()=>{
+      if(dragged){ dragged = false; return; }
+      if(!pushMode){
+        if(!confirm('Retirer ce jeton de ' + p.name + ' ?')) return;
+        ref.marks = ref.marks.filter(x=>x.id !== m.id);
+        save(); render();
+        return;
+      }
+      if(!zone) return;
+      if(choisi){ delete pushSel[zone.key]; return render(); }
+      if(!p.present) return flash(p.name + ' est marqué absent');
+      if(ailleurs) return flash(p.name + ' est déjà retenu à un autre poste');
+      if(complet) return flash('Déjà 8 joueurs choisis');
+      if(pushSel[zone.key]) return flash('Un joueur est déjà choisi en ' + zone.label.toLowerCase());
+      pushSel[zone.key] = p.id;
+      render();
+    });
+    pitch.appendChild(btn);
+  });
+
+  const cnt = document.getElementById('ref-count');
+  if(pushMode){
+    const k = Object.keys(pushSel).length;
+    cnt.textContent = k + '/' + MAX_ON_FIELD;
+    cnt.className = 'count' + (k===MAX_ON_FIELD ? '' : ' warn');
+  }else{
+    const poses = new Set(ref.marks.map(m=>m.pid)).size;
+    cnt.textContent = poses + ' / ' + state.players.length;
+    cnt.className = 'count';
+  }
+  document.getElementById('ref-actions').hidden = pushMode;
+  document.getElementById('push-actions').hidden = !pushMode;
+  document.getElementById('ref-bench').hidden = pushMode;
+  document.getElementById('ref-hint').textContent = pushMode
+    ? 'Touche les joueurs à aligner : un seul par zone, huit au maximum.'
+    : "Toute l'équipe, indépendamment des présences. Glisse un prénom sur le terrain, plusieurs fois si le joueur tient plusieurs postes. Touche un jeton pour le retirer.";
+
+  // réserve : tout l'effectif, en vert ceux qui sont déjà sur le terrain
+  const bench = document.getElementById('ref-bench');
+  bench.innerHTML = '';
+  state.players.forEach((p,k)=>{
+    const n = state.reference.marks.filter(m=>m.pid===p.id).length;
+    const c = document.createElement('button');
+    c.className = 'chip' + (n ? ' on' : '');
+    c.textContent = (p.num? p.num+' ':'') + p.name + (n>1 ? '  ×'+n : '');
+
+    const poser = (x,y)=>{
+      ref.marks.push({id: uid(), pid: p.id, x, y});
+      save(); render();
+    };
+    c.addEventListener('pointerdown', e=>{
+      const ghost = document.createElement('span');
+      ghost.className = 'chip ghost';
+      ghost.textContent = c.textContent;
+      ghost.style.left = e.clientX+'px';
+      ghost.style.top  = e.clientY+'px';
+      document.body.appendChild(ghost);
+      let bouge = false;
+      c.setPointerCapture(e.pointerId);
+      const onMove = ev=>{
+        if(Math.hypot(ev.clientX-e.clientX, ev.clientY-e.clientY) > 6) bouge = true;
+        ghost.style.left = ev.clientX+'px';
+        ghost.style.top  = ev.clientY+'px';
+      };
+      const onUp = ev=>{
+        c.removeEventListener('pointermove', onMove);
+        c.removeEventListener('pointerup', onUp);
+        ghost.remove();
+        const r = pitch.getBoundingClientRect();
+        const dedans = ev.clientX>=r.left && ev.clientX<=r.right && ev.clientY>=r.top && ev.clientY<=r.bottom;
+        if(bouge && dedans){
+          poser(Math.max(3, Math.min(97, (ev.clientX-r.left)/r.width*100)),
+                Math.max(2, Math.min(98, (ev.clientY-r.top)/r.height*100)));
+        }else if(!bouge){
+          poser(18 + (k % 5) * 16, 44 + Math.floor(k / 5) * 8);
+        }
+      };
+      c.addEventListener('pointermove', onMove);
+      c.addEventListener('pointerup', onUp);
+    });
+    bench.appendChild(c);
+  });
+}
+document.getElementById('btn-clear-ref').addEventListener('click', ()=>{
+  if(!confirm('Retirer tous les jetons du terrain de référence ?')) return;
+  state.reference.marks = [];
+  save(); render();
+});
+document.getElementById('btn-publish-ref').addEventListener('click', ()=>{
+  publier('ref', 'Postes de référence', {marks: state.reference.marks});
+});
+
+/* --- composer une équipe à partir de la référence --- */
+let pushMode = false;
+let pushSel = {};      // clé de zone -> identifiant du joueur
+
+document.getElementById('btn-push').addEventListener('click', ()=>{
+  pushSel = {};
+  // présélection : le seul joueur présent d'une zone est retenu d'office
+  const parZone = {};
+  state.reference.marks.forEach(m=>{
+    const p = byId(m.pid);
+    if(!p || !p.present) return;
+    const z = zoneDe(m);
+    if(z && parZone[z.key] !== undefined) parZone[z.key] = 'plusieurs';
+    else if(z) parZone[z.key] = p.id;
+  });
+  Object.keys(parZone).forEach(k=>{
+    const pid = parZone[k];
+    if(pid !== 'plusieurs'
+       && Object.values(pushSel).indexOf(pid) === -1
+       && Object.keys(pushSel).length < MAX_ON_FIELD) pushSel[k] = pid;
+  });
+  pushMode = true;
+  render();
+});
+document.getElementById('btn-push-cancel').addEventListener('click', ()=>{
+  pushMode = false; pushSel = {}; render();
+});
+document.getElementById('btn-push-go').addEventListener('click', ()=>{
+  const n = Object.keys(pushSel).length;
+  if(!n) return flash('Choisis au moins un joueur');
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Envoyer ces ' + n + ' joueurs vers…';
+  body.innerHTML = '';
+  state.compos.forEach((c,i)=>{
+    const placés = Object.values(c.slots).filter(Boolean).length;
+    const b = document.createElement('button');
+    b.textContent = c.name + '   ' + (placés ? placés + ' joueurs placés' : 'vide');
+    b.addEventListener('click', ()=>{
+      if(placés && !confirm('Écraser « ' + c.name + ' » ?')) return;
+      c.slots = {};
+      c.pos = {};
+      Object.keys(pushSel).forEach(k=>{
+        const pid = pushSel[k];
+        c.slots[k] = pid;
+        const rp = state.reference.marks.find(m=>m.pid===pid && (zoneDe(m)||{}).key===k);
+        if(rp) c.pos[k] = {x: rp.x, y: rp.y};   // la place exacte de la référence
+      });
+      save(); picker.close();
+      pushMode = false; pushSel = {};
+      compoIndex = i; render();
+      flash('Équipe envoyée dans ' + c.name);
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+});
+
 function renderCompare(){
-  ['card-compo','card-bench'].forEach(id=>document.getElementById(id).hidden = true);
+  ['card-compo','card-bench','card-ref'].forEach(id=>document.getElementById(id).hidden = true);
   document.getElementById('card-compare').hidden = false;
   document.getElementById('card-changes').hidden = false;
 
@@ -663,7 +938,7 @@ document.getElementById('btn-copy-changes').addEventListener('click', ()=>{
 });
 
 function renderCompo(){
-  ['card-compare','card-changes'].forEach(id=>document.getElementById(id).hidden = true);
+  ['card-compare','card-changes','card-ref'].forEach(id=>document.getElementById(id).hidden = true);
   ['card-compo','card-bench'].forEach(id=>document.getElementById(id).hidden = false);
   const compo = state.compos[compoIndex];
   document.getElementById('compo-title').textContent = compo.name;
@@ -1530,7 +1805,7 @@ function renderShare(){
     const li = document.createElement('li');
     const j = document.createElement('div');
     j.className = 'jersey';
-    j.textContent = pub.type==='pc' ? 'PC' : 'C';
+    j.textContent = pub.type==='pc' ? 'PC' : (pub.type==='ref' ? 'Réf' : 'C');
     li.appendChild(j);
 
     const n = document.createElement('div');
@@ -1622,6 +1897,19 @@ function loadPublication(pub){
   const body = document.getElementById('picker-body');
   head.textContent = 'Charger « ' + pub.nom + ' » dans…';
   body.innerHTML = '';
+  if(pub.type==='ref'){
+    if(confirm('Remplacer ton terrain de référence par « ' + pub.nom + ' » ?')){
+      if(pub.data.marks){
+        state.reference.marks = JSON.parse(JSON.stringify(pub.data.marks));
+      }else{
+        const anciennes = pub.data.pos || {};
+        state.reference.marks = Object.keys(anciennes).map(pid=>({id:uid(), pid, x:anciennes[pid].x, y:anciennes[pid].y}));
+      }
+      view = 'compos'; compoIndex = 6;
+      save(); render(); flash('Copié chez toi');
+    }
+    return;
+  }
   const cibles = pub.type==='pc'
     ? PC_BOARDS.map((b,i)=>({label:b.title, i}))
     : state.compos.map((c,i)=>({label:c.name, i}));
@@ -1672,7 +1960,7 @@ function render(){
   sortPlayers();
   renderNav();
   if(view==='players') renderPlayers();
-  if(view==='compos')  (compoIndex===5 ? renderCompare() : renderCompo());
+  if(view==='compos')  (compoIndex===5 ? renderCompare() : compoIndex===6 ? renderReference() : renderCompo());
   if(view==='pc')      renderPC();
   if(view==='share')   renderShare();
   document.getElementById('hdr-sub').textContent =

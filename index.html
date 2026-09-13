@@ -1856,89 +1856,124 @@ function S(type, x1, y1, x2, y2, sync){
 
 const SEQ_MODELES = [
   {
-    nom:'Attaque par le flanc droit',
-    tokens: ()=>tk({MD:[430,380,'AD']}),
-    notes:"Fixer au centre, servir l'ailier dans sa course. Le défenseur adverse glisse pour couvrir et son arrière vient marquer au poteau : le centre doit partir avant qu'ils ne soient replacés, et trouver un joueur DANS le cercle — hors du cercle, le but ne compte pas.",
+    nom:'1. Sortie aux 16 yards',
+    tokens: ()=>tk({DC:[275,770], DG:[95,700], DD:[455,690]}),
+    notes:"Le gardien reste dans le cercle, il n'est jamais une solution de passe. Un défenseur pose la balle, les deux autres s'ouvrent vers la ligne des 23 m, un médian vient en triangle. Première intention : le flanc, en coup droit. Jamais de transversale devant son propre but — la balle sort, elle ne traverse pas.",
     shapes: ()=>[
-      S('pass', 275,520, 430,380),
-      S('conduite', 430,380, 445,215),
-      S('run', 390,380, 440,300, true),
-      S('run', 275,300, 300,110, true),
-      S('pass', 445,215, 300,110),
-      S('run', 400,200, 332,112, true),
-      S('tir', 300,110, 275,20),
-      S('run', 275,60, 292,72, true)
+      S('run', 275,520, 330,630),
+      S('run', 275,610, 300,700, true),
+      S('pass', 275,770, 455,690),
+      S('conduite', 455,690, 465,560),
+      S('pass', 465,560, 400,540)
     ]
   },
   {
-    nom:'Attaque par le flanc gauche',
-    tokens: ()=>tk({MG:[120,380,'AG']}),
-    notes:"Même principe côté gauche. L'ailier prend la ligne, le centre part en retrait vers la pointe du cercle plutôt que vers le gardien, qui sort au premier ballon piqué.",
+    nom:'2. Sortie sous pression — auto-passe',
+    tokens: ()=>tk({DC:[275,770]}),
+    notes:"L'adversaire doit être à 5 m au moment de la frappe. Le porteur se fait l'auto-passe, conduit en diagonale vers le côté libre pour fixer le presseur, puis libère. C'est l'outil que le football n'a pas : à exploiter systématiquement.",
     shapes: ()=>[
-      S('pass', 275,520, 120,380),
-      S('conduite', 120,380, 105,215),
-      S('run', 160,380, 110,300, true),
-      S('run', 275,300, 250,110, true),
-      S('pass', 105,215, 250,110),
-      S('run', 150,200, 218,112, true),
-      S('tir', 250,110, 275,20),
-      S('run', 275,60, 258,72, true)
+      S('conduite', 275,770, 305,757),
+      S('conduite', 305,757, 395,655),
+      S('run', 275,610, 355,645, true),
+      S('pass', 395,655, 400,540),
+      S('conduite', 400,540, 410,420)
     ]
   },
   {
-    nom:'Changement de côté par l\'arrière',
-    tokens: ()=>tk({MD:[430,330,'AD']}),
-    notes:"Le flanc droit est bouché : l'attaquant remet en arrière plutôt que de forcer. Les adversaires suivent la balle et glissent tous du même côté — c'est ce déplacement qui ouvre l'espace à gauche.",
+    nom:'3. Couloir et centre en retrait',
+    tokens: ()=>tk({MD:[430,380,'AD'], MC:[275,430]}),
+    notes:"L'ailier conduit jusqu'à la ligne de fond et élimine à l'extérieur, puis remet à ras de terre vers le point de penalty. Le médian arrive lancé, le second attaquant se place au premier poteau, stick au sol, pour dévier sans contrôler.",
+    shapes: ()=>[
+      S('conduite', 430,380, 455,120),
+      S('run', 400,200, 442,150, true),
+      S('run', 275,300, 240,95, true),
+      S('run', 275,430, 275,145, true),
+      S('pass', 455,120, 275,69),
+      S('tir', 275,69, 275,20)
+    ]
+  },
+  {
+    nom:"4. Changement d'aile par l'arrière",
+    tokens: ()=>tk({MD:[430,330,'AD'], MG:[95,330,'AG']}),
+    notes:"Côté bouché : on revient sur le défenseur libre et on change en diagonale coup droit, ou en balle aérienne par-dessus le bloc. Pas de hors-jeu au hockey, donc l'ailier opposé reste haut et collé à sa ligne. Le joueur le plus loin de la balle est le plus important.",
     shapes: ()=>[
       S('pass', 430,330, 420,700),
       S('run', 390,380, 415,520, true),
       S('pass', 420,700, 275,732),
-      S('run', 275,610, 300,690, true),
+      S('run', 275,610, 300,680, true),
       S('pass', 275,732, 130,700),
-      S('run', 300,690, 200,690, true),
-      S('pass', 130,700, 150,540),
-      S('conduite', 150,540, 130,380),
-      S('run', 160,380, 175,300, true),
-      S('pass', 130,380, 275,300)
+      S('run', 300,680, 210,672, true),
+      S('pass', 130,700, 95,330),
+      S('conduite', 95,330, 120,200)
     ]
   },
   {
-    nom:'Relance du gardien',
-    notes:"Sortie courte sur le côté pendant que l'attaquant adverse vient presser. Le défenseur conduit pour l'attirer, puis passe dans son dos. Jamais de passe qui traverse devant son propre but.",
+    nom:'5. Pressing sur leur sortie de 23',
+    tokens: ()=>tk({B3:[275,160], B2:[150,205], B4:[400,200]}),
+    notes:"Interdit d'être à moins de 5 m de la frappe : on construit une courbe. Le premier presseur arrive en biais pour fermer le coup droit et forcer le revers ou la touche. Le second coupe le défenseur large, les médians prennent en individuelle. On presse en biais, jamais de face.",
     shapes: ()=>[
-      S('pass', 275,862, 420,700),
-      S('run', 275,610, 370,650, true),
-      S('conduite', 420,700, 455,600),
-      S('run', 370,650, 430,620, true),
-      S('pass', 455,600, 400,540),
-      S('run', 390,380, 400,470, true),
-      S('pass', 400,540, 275,520)
+      S('run', 275,300, 215,255),
+      S('run', 150,540, 170,330, true),
+      S('run', 400,540, 388,315, true),
+      S('run', 275,520, 272,395, true),
+      S('run', 215,255, 252,200),
+      S('pass', 275,160, 150,205),
+      S('run', 170,330, 152,255, true)
     ]
   },
   {
-    nom:'Pressing haut',
-    notes:"Déclencher quand la balle part sur un flanc adverse. Tout le monde monte ensemble : l'attaquant oriente vers l'extérieur, les milieux coupent les lignes de passe. L'adversaire n'a plus que le retour au gardien.",
+    nom:'6. Bloc médian et canalisation',
+    notes:"Balle perdue : personne ne poursuit seul, on recule ensemble derrière le milieu. On oriente le porteur vers la touche, qui devient le neuvième défenseur. Interception côté coup droit, stick au sol, pieds qui reculent — jamais de tacle dans le dos.",
     shapes: ()=>[
-      S('pass', 275,180, 150,200),
-      S('run', 275,300, 225,235, true),
-      S('run', 150,540, 172,335, true),
-      S('run', 275,520, 248,400, true),
-      S('run', 400,540, 392,420, true),
-      S('pass', 150,200, 275,60),
-      S('run', 225,235, 205,140, true)
+      S('conduite', 275,400, 275,505),
+      S('run', 275,300, 275,470, true),
+      S('run', 275,520, 268,640, true),
+      S('run', 400,540, 388,645, true),
+      S('run', 150,540, 165,645, true),
+      S('pass', 275,505, 150,565),
+      S('run', 165,645, 152,590, true)
     ]
   },
   {
-    nom:'Repli et bloc bas',
-    notes:"Balle perdue haut : personne ne poursuit seul pendant que le porteur adverse avance. Tout le monde recule ensemble derrière la ligne des 23 m, on referme l'axe et on laisse l'extérieur.",
+    nom:'7. Défense de cercle',
+    tokens: ()=>tk({DC:[275,790], DG:[215,820], DD:[360,760], B5:[165,650]}),
+    notes:"Toute faute de pied ou de stick d'un défenseur dans le cercle donne un PC. Donc : côté but, stick à plat dans la ligne de tir, un joueur sur la zone de remise au point de penalty, un au premier poteau, le gardien prend le tir. Dans le cercle on bloque, on ne tacle pas.",
     shapes: ()=>[
-      S('conduite', 275,400, 275,540),
-      S('run', 275,300, 275,480, true),
-      S('run', 275,520, 268,645, true),
-      S('run', 400,540, 385,650, true),
-      S('run', 150,540, 165,650, true),
-      S('pass', 275,540, 160,560),
-      S('run', 130,700, 150,620, true)
+      S('conduite', 165,650, 205,775),
+      S('run', 215,820, 238,860, true),
+      S('run', 275,790, 275,845, true),
+      S('run', 360,760, 300,800, true),
+      S('tir', 205,775, 272,900),
+      S('run', 275,862, 258,884, true)
+    ]
+  },
+  {
+    nom:'8. Provoquer un PC',
+    tokens: ()=>tk({MD:[430,330,'AD']}),
+    notes:"Entrer dans le cercle balle au stick en attaquant les pieds du défenseur, ou tirer bas sur les jambières du gardien pour provoquer le rebond. À ce niveau, c'est souvent plus rentable qu'un tir cadré.",
+    shapes: ()=>[
+      S('conduite', 430,330, 340,140),
+      S('run', 400,200, 358,152, true),
+      S('conduite', 340,140, 300,112),
+      S('run', 275,300, 250,105, true),
+      S('tir', 300,112, 275,35),
+      S('run', 275,60, 283,44, true)
+    ]
+  },
+  {
+    nom:'9. Transition après récupération',
+    tokens: ()=>tk({MG:[95,330,'AG'], MD:[430,380,'AD']}),
+    notes:"Première passe vers l'avant, trois relais au maximum. L'ailier opposé reste large et haut pendant toute la transition. Objectif : entrer dans le cercle avant que leur bloc se réorganise.",
+    shapes: ()=>[
+      S('pass', 275,520, 430,380),
+      S('run', 95,330, 100,215, true),
+      S('run', 275,300, 275,235, true),
+      S('conduite', 430,380, 442,265),
+      S('run', 390,380, 420,325, true),
+      S('pass', 442,265, 275,235),
+      S('pass', 275,235, 100,215),
+      S('conduite', 100,215, 205,115),
+      S('tir', 205,115, 275,30)
     ]
   }
 ];

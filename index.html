@@ -147,7 +147,7 @@ li.present .switch::after{transform:translateX(21px)}
 .ghost{position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.3)}
 .step{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--stroke)}
 .step:last-child{border-bottom:0}
-.step .num{width:26px;height:26px;flex:none;border-radius:8px;background:var(--page);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--ink-soft)}
+.step .num{width:32px;height:26px;flex:none;border-radius:8px;background:var(--page);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--ink-soft)}
 .step .lbl2{flex:1;font-size:14px;font-weight:600}
 .step .sync{font-size:11.5px;color:var(--ink-soft);font-weight:600}
 .step button{border:1px solid var(--stroke);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:700}
@@ -187,13 +187,18 @@ svg.board text{font-family:system-ui,sans-serif;font-weight:700;pointer-events:n
 textarea{width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;resize:vertical;min-height:74px;background:var(--surface)}
 
 /* ---------- Modal ---------- */
-dialog{border:0;border-radius:16px;padding:0;width:min(420px,92vw);box-shadow:0 18px 48px rgba(0,0,0,.28)}
+dialog{border:0;border-radius:16px;padding:0;width:min(420px,92vw);max-height:85vh;
+  display:none;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,.28)}
+dialog[open]{display:flex}
 dialog::backdrop{background:rgba(10,25,20,.5)}
-.dlg-head{padding:14px 16px 8px;font-weight:650}
-.dlg-body{padding:0 10px 10px;max-height:60vh;overflow:auto}
+.dlg-head{padding:14px 16px 8px;font-weight:650;display:flex;align-items:center;gap:10px;flex:none}
+.dlg-head span{flex:1}
+.dlg-head button{border:0;background:var(--page);border-radius:9px;width:34px;height:34px;font-size:16px;font-weight:700;color:var(--ink-soft);flex:none}
+.dlg-body{padding:0 10px 10px;flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .dlg-body button{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 10px;border-radius:10px;font-size:16px;font-weight:600}
 .dlg-body button:active{background:var(--page)}
-.dlg-foot{padding:8px 12px 14px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--stroke)}
+.dlg-foot{padding:10px 12px calc(14px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:flex-end;
+  border-top:1px solid var(--stroke);background:var(--surface);flex:none;position:sticky;bottom:0}
 .empty{padding:16px 12px;color:var(--ink-soft);font-size:14px}
 </style>
 </head>
@@ -383,6 +388,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       </svg>
       <div class="tools" style="margin-top:10px">
         <button class="btn primary" id="btn-seq-model">Modèles</button>
+        <button id="btn-seq-new">Nouvelle</button>
         <button id="btn-seq-play">Lecture</button>
         <button id="btn-seq-player">＋ Joueur</button>
         <button id="btn-seq-opp">＋ Adversaire</button>
@@ -431,7 +437,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
 </main>
 
 <dialog id="picker">
-  <div class="dlg-head" id="picker-head">Choisir un joueur</div>
+  <div class="dlg-head"><span id="picker-head">Choisir un joueur</span><button id="picker-x" aria-label="Fermer">✕</button></div>
   <div class="dlg-body" id="picker-body"></div>
   <div class="dlg-foot"><button class="btn ghost" id="picker-close">Fermer</button></div>
 </dialog>
@@ -1110,6 +1116,9 @@ function escapeHtml(s){ return s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;',
 
 const picker = document.getElementById('picker');
 document.getElementById('picker-close').addEventListener('click', ()=>picker.close());
+document.getElementById('picker-x').addEventListener('click', ()=>picker.close());
+// un appui en dehors de la fenêtre la ferme aussi
+picker.addEventListener('click', e=>{ if(e.target === picker) picker.close(); });
 
 function openPicker(key, pos, count){
   const compo = state.compos[compoIndex];
@@ -1262,7 +1271,11 @@ function playCompo(){
     if(i >= compo.shapes.length){ setTimeout(finish, 900); return; }
     const s = compo.shapes[i++];
     const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
-    const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.2));
+    // le déplacement d'un joueur est plus lent que celui de la balle
+    const vitesse = (s.type==='run' || s.type==='conduite') ? 6.2 : 3.4;
+    const dur = s.type==='tir'
+    ? Math.max(260, len*1.6)
+    : Math.min(2600, Math.max(450, len*vitesse));
 
     let move = null;
     if(s.type==='run'){
@@ -1726,7 +1739,11 @@ function playPC(){
     if(i >= d.shapes.length){ setTimeout(finish, 900); return; }
     const s = d.shapes[i++];
     const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
-    const dur = s.type==='tir' ? Math.max(260, len*2.2) : Math.min(1500, Math.max(380, len*5));
+    // le déplacement d'un joueur est plus lent que celui de la balle
+    const vitesse = (s.type==='run' || s.type==='conduite') ? 6.2 : 3.4;
+    const dur = s.type==='tir'
+    ? Math.max(260, len*1.6)
+    : Math.min(2600, Math.max(450, len*vitesse));
 
     let move = null;
     if(s.type==='run'){
@@ -1988,6 +2005,35 @@ function seqGroupes(shapes){
   return g;
 }
 
+/* Numéro d'action : le temps, plus une lettre si plusieurs mouvements simultanés. */
+function seqLabels(shapes){
+  const out = [];
+  let temps = 0, debut = 0;
+  shapes.forEach((s,i)=>{
+    if(i===0 || !s.sync){ temps++; debut = i; }
+    out.push({temps, rang: i - debut});
+  });
+  const tailles = {};
+  out.forEach(o=>{ tailles[o.temps] = Math.max(tailles[o.temps]||0, o.rang+1); });
+  return out.map(o=> tailles[o.temps] > 1
+    ? o.temps + 'abcdefgh'[o.rang]
+    : String(o.temps));
+}
+
+function badgesMarkup(shapes){
+  const labels = seqLabels(shapes);
+  return shapes.map((s,i)=>{
+    const dx = s.x2-s.x1, dy = s.y2-s.y1;
+    const n = Math.hypot(dx,dy) || 1;
+    const x = s.x1 + dx/n*16, y = s.y1 + dy/n*16;   // juste après le départ de la flèche
+    return `<g pointer-events="none">
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="#10201B" stroke="#fff" stroke-width="1.5" opacity=".92"/>
+      <text x="${x.toFixed(1)}" y="${(y+4.5).toFixed(1)}" text-anchor="middle" font-size="13"
+            font-family="system-ui,sans-serif" font-weight="700" fill="#fff">${labels[i]}</text>
+    </g>`;
+  }).join('');
+}
+
 function renderSteps(){
   const wrap = document.getElementById('seq-steps');
   const d = state.seq;
@@ -1996,15 +2042,14 @@ function renderSteps(){
     wrap.innerHTML = '<p class="muted">Les mouvements tracés apparaîtront ici, dans l\'ordre de lecture.</p>';
     return;
   }
-  let temps = 0;
+  const labels = seqLabels(d.shapes);
   d.shapes.forEach((s,i)=>{
-    if(i===0 || !s.sync) temps++;
     const row = document.createElement('div');
     row.className = 'step';
 
     const n = document.createElement('span');
     n.className = 'num';
-    n.textContent = temps;
+    n.textContent = labels[i];
     row.appendChild(n);
 
     const l = document.createElement('span');
@@ -2045,14 +2090,16 @@ function renderSteps(){
   const aide = document.createElement('p');
   aide.className = 'muted';
   aide.style.marginTop = '8px';
-  aide.textContent = '↑ ↓ changent l\'ordre, ⇉ joue le mouvement en même temps que celui du dessus, ✕ le supprime.';
+  aide.textContent = 'Le numéro est repris sur le terrain. 3a et 3b se jouent en même temps. Les flèches ↑ ↓ changent l'+"'"+'ordre, ⇉ regroupe avec le mouvement du dessus, ✕ supprime.';
   wrap.appendChild(aide);
 }
 
 function renderSeq(){
   const d = state.seq;
   document.getElementById('seq-lines').innerHTML = pitchLinesMarkup();
-  renderShapes(document.getElementById('seq-shapes'), d.shapes);
+  const gs = document.getElementById('seq-shapes');
+  renderShapes(gs, d.shapes);
+  gs.insertAdjacentHTML('beforeend', badgesMarkup(d.shapes));
   document.getElementById('seq-tokens').innerHTML = d.tokens.map(t=>{
     const fill = t.team==='them' ? '#33403F' : (t.team==='gk' ? '#F2C230' : '#A80610');
     const fg = t.team==='gk' ? '#221B00' : '#fff';
@@ -2246,6 +2293,75 @@ document.getElementById('btn-seq-addmodel').addEventListener('click', ()=>{
   picker.showModal();
 });
 
+document.getElementById('btn-seq-new').addEventListener('click', ()=>{
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Nouvelle séquence';
+  body.innerHTML = '';
+  const demarrer = tokens=>{
+    if((state.seq.shapes.length || state.seq.tokens.length)
+       && !confirm('La séquence affichée sera effacée. Continuer ?')) return;
+    state.seq.tokens = tokens;
+    state.seq.shapes = [];
+    state.seq.notes = '';
+    state.seq.name = '';
+    save(); picker.close(); render();
+    document.getElementById('seq-name').focus();
+  };
+  const b1 = document.createElement('button');
+  b1.textContent = 'Formation de base — 8 contre 8';
+  b1.style.fontWeight = '700';
+  b1.addEventListener('click', ()=>demarrer(baseTokens()));
+  body.appendChild(b1);
+  const b2 = document.createElement('button');
+  b2.textContent = 'Terrain vide';
+  b2.addEventListener('click', ()=>demarrer([]));
+  body.appendChild(b2);
+  picker.showModal();
+});
+
+document.getElementById('btn-seq-opp').addEventListener('click', ()=>{
+  const n = state.seq.tokens.filter(t=>t.team==='them').length + 1;
+  state.seq.tokens.push({id:uid(), label:'B'+n, team:'them', x:275, y:200});
+  save(); renderSeq();
+});
+
+document.getElementById('btn-seq-player').addEventListener('click', ()=>{
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Ajouter un joueur';
+  body.innerHTML = '';
+  const list = presentPlayers();
+  if(!list.length) body.innerHTML = '<p class="empty">Coche d\'abord les joueurs présents.</p>';
+  list.forEach(p=>{
+    const b = document.createElement('button');
+    b.textContent = (p.num? p.num+'  ':'') + p.name;
+    b.addEventListener('click', ()=>{
+      state.seq.tokens.push({id:uid(), pid:p.id, label:p.num || initials(p.name), team:'us', x:275, y:600});
+      save(); picker.close(); renderSeq();
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+});
+
+document.getElementById('btn-seq-undo').addEventListener('click', ()=>{
+  state.seq.shapes.pop();
+  if(state.seq.shapes.length) state.seq.shapes[0].sync = false;
+  save(); renderSeq();
+});
+
+document.getElementById('btn-seq-clear').addEventListener('click', ()=>{
+  if(!confirm('Effacer jetons et tracés ?')) return;
+  state.seq.tokens = []; state.seq.shapes = [];
+  save(); renderSeq();
+});
+
+document.getElementById('btn-seq-publish').addEventListener('click', ()=>{
+  const titre = (state.seq.name || 'Séquence').trim();
+  publier('seq', titre, {tokens: state.seq.tokens, shapes: state.seq.shapes, notes: state.seq.notes || ''});
+});
+
 /* --- lecture animée --- */
 let seqPlaying = false, seqRAF = null;
 
@@ -2283,7 +2399,11 @@ function playSeq(){
 
     const pistes = groupe.map(s=>{
       const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
-      const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.4));
+      // le déplacement d'un joueur est plus lent que celui de la balle
+      const vitesse = (s.type==='run' || s.type==='conduite') ? 6.2 : 3.4;
+      const dur = s.type==='tir'
+      ? Math.max(260, len*1.6)
+      : Math.min(2600, Math.max(450, len*vitesse));
       const movers = [];
       if(s.type==='run' || s.type==='conduite'){
         const t = proche(s.x1, s.y1);

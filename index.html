@@ -210,6 +210,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
   <button role="tab" data-view="players" aria-selected="true">Joueurs</button>
   <button role="tab" data-view="compos" aria-selected="false">Compos</button>
   <button role="tab" data-view="pc" aria-selected="false">PC</button>
+  <button role="tab" data-view="seq" aria-selected="false">Séq.</button>
   <button role="tab" data-view="share" aria-selected="false">Partage</button>
 </nav>
 
@@ -354,6 +355,45 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       <textarea id="pc-notes" placeholder="Qui pousse, qui stoppe, qui frappe, les rebonds…"></textarea>
     </div>
   </section>
+  <!-- ============ SÉQUENCES ============ -->
+  <section id="view-seq" hidden>
+    <div class="card">
+      <input id="seq-name" placeholder="Nom de la séquence"
+             style="width:100%;border:1px solid var(--stroke);border-radius:10px;padding:10px;margin-bottom:10px;font-weight:650;background:var(--surface)">
+      <div class="tools" id="seq-modes">
+        <button data-smode="move" aria-pressed="true">Déplacer</button>
+        <button data-smode="pass" aria-pressed="false">Passe</button>
+        <button data-smode="conduite" aria-pressed="false">Conduite</button>
+        <button data-smode="run" aria-pressed="false">Course</button>
+        <button data-smode="tir" aria-pressed="false">Tir</button>
+        <button data-smode="erase" aria-pressed="false">Gomme</button>
+      </div>
+      <svg class="board" id="seq-board" viewBox="0 0 550 914" xmlns="http://www.w3.org/2000/svg">
+        <g id="seq-lines"></g>
+        <g id="seq-shapes"></g>
+        <g id="seq-tokens"></g>
+        <g id="seq-anim"></g>
+      </svg>
+      <div class="tools" style="margin-top:10px">
+        <button class="btn primary" id="btn-seq-model">Modèles</button>
+        <button id="btn-seq-play">Lecture</button>
+        <button id="btn-seq-player">＋ Joueur</button>
+        <button id="btn-seq-opp">＋ Adversaire</button>
+        <button id="btn-seq-undo">Annuler le trait</button>
+        <button id="btn-seq-clear">Tout effacer</button>
+      </div>
+      <div class="tools" style="margin-top:6px">
+        <button id="btn-seq-addmodel">Ajouter aux modèles</button>
+        <button id="btn-seq-publish">Publier</button>
+      </div>
+      <p class="muted" style="margin:10px 0 0">Nous attaquons vers le haut. Touche un jeton pour le renommer, glisse-le pour le déplacer.</p>
+    </div>
+    <div class="card">
+      <div class="rowbar"><h2>Consignes</h2></div>
+      <textarea id="seq-notes" placeholder="Ce que les joueurs doivent retenir…"></textarea>
+    </div>
+  </section>
+
   <!-- ============ PARTAGE ============ -->
   <section id="view-share" hidden>
     <div class="card">
@@ -439,6 +479,13 @@ function migrate(s){
   }
   s.strategies = s.strategies || [null,null,null,null,null];
   s.compoSaves = s.compoSaves || [null,null,null,null,null];
+  s.seq = s.seq || {tokens:[], shapes:[], notes:''};
+  if(!s.seqModels){
+    s.seqModels = (s.seqSaves || []).filter(Boolean).map(function(m){
+      return {id: uid(), name: m.name, date: m.date, tokens: m.tokens, shapes: m.shapes, notes: m.notes || ''};
+    });
+    delete s.seqSaves;
+  }
   s.reference = s.reference || {};
   if(!s.reference.marks){
     // reprise de l'ancien format : une seule position par joueur
@@ -480,11 +527,12 @@ function renderNav(){
   document.getElementById('view-players').hidden = view!=='players';
   document.getElementById('view-compos').hidden  = view!=='compos';
   document.getElementById('view-pc').hidden      = view!=='pc';
+  document.getElementById('view-seq').hidden     = view!=='seq';
   document.getElementById('view-share').hidden   = view!=='share';
 
   const sub = document.getElementById('subnav');
   sub.innerHTML = '';
-  if(view==='players' || view==='share'){ sub.hidden = true; return; }
+  if(view==='players' || view==='share' || view==='seq'){ sub.hidden = true; return; }
   sub.hidden = false;
   const items = view==='compos'
     ? state.compos.map((c,i)=>({label:c.name, i})).concat([{label:'Changements', i:5}, {label:'Référence', i:6}])
@@ -1371,7 +1419,8 @@ const BOARD_W = 550, GOAL_X = 275, BACK_Y = 55, POST = 18.3, R = 146;
 const TRACE = {
   pass:{color:'#F2C230', width:3.5, dash:'9 7', label:'passe'},
   run: {color:'#FFFFFF', width:3.5, dash:'',    label:'course'},
-  tir: {color:'#FF7A1A', width:6,   dash:'',    label:'tir'}
+  tir: {color:'#FF7A1A', width:6,   dash:'',    label:'tir'},
+  conduite: {color:'#FFFFFF', width:4, dash:'18 6', label:'conduite'}
 };
 const CAGE_W = 130, CAGE_D = 46;   // but dessiné agrandi : 5 jetons doivent y tenir
 const TOK_R = 13;
@@ -1760,6 +1809,366 @@ document.getElementById('btn-clear-pc').addEventListener('click', ()=>{
   d.tokens = []; d.shapes = []; save(); renderPC();
 });
 
+
+/* ==================================================================
+   Séquences de jeu
+================================================================== */
+const SEQ_R = 17;
+let seqMode = 'move';
+
+const NOUS = [
+  ['GK',275,862],['DG',130,700],['DC',275,732],['DD',420,700],
+  ['MG',150,540],['MC',275,520],['MD',400,540],['AC',275,300]
+];
+const EUX = [
+  ['B1',275,60],['B2',150,200],['B3',275,180],['B4',400,200],
+  ['B5',160,380],['B6',275,400],['B7',390,380],['B8',275,610]
+];
+function baseTokens(){
+  const t = [];
+  NOUS.forEach(([l,x,y])=>t.push({id:uid(), label:l, team:'us', x, y}));
+  EUX.forEach(([l,x,y])=>t.push({id:uid(), label:l, team:'them', x, y}));
+  return t;
+}
+function miroir(tokens){
+  return tokens.map(t=>Object.assign({}, t, {x: 550 - t.x, label: t.label.replace('G','♦').replace('D','G').replace('♦','D')}));
+}
+function S(type, x1, y1, x2, y2){ return {id:uid(), type, x1, y1, x2, y2}; }
+
+const SEQ_MODELES = [
+  {
+    nom:'Attaque par le flanc droit',
+    notes:"Fixer au centre pour écarter le bloc, servir le flanc droit dans la course, appel du buteur au premier poteau.",
+    shapes: ()=>[
+      S('pass', 275,520, 400,540),
+      S('conduite', 400,540, 450,330),
+      S('run', 275,300, 310,200),
+      S('pass', 450,330, 310,200),
+      S('tir', 310,200, 275,80)
+    ]
+  },
+  {
+    nom:'Attaque par le flanc gauche',
+    notes:"Même principe côté gauche. Le milieu central décale, l'ailier prend la ligne, centre en retrait.",
+    shapes: ()=>[
+      S('pass', 275,520, 150,540),
+      S('conduite', 150,540, 100,330),
+      S('run', 275,300, 240,200),
+      S('pass', 100,330, 240,200),
+      S('tir', 240,200, 275,80)
+    ]
+  },
+  {
+    nom:'Changement de côté par l\'arrière',
+    notes:"Quand le flanc est bouché, revenir par la défense et renverser. Le bloc adverse doit courir, l'espace s'ouvre de l'autre côté.",
+    shapes: ()=>[
+      S('pass', 420,700, 275,732),
+      S('pass', 275,732, 130,700),
+      S('pass', 130,700, 150,540),
+      S('conduite', 150,540, 140,390),
+      S('pass', 140,390, 275,300)
+    ]
+  },
+  {
+    nom:'Relance du gardien',
+    notes:"Sortie courte sur le côté, le latéral conduit pour attirer, puis passe dans le dos du premier rideau.",
+    shapes: ()=>[
+      S('pass', 275,862, 420,700),
+      S('conduite', 420,700, 455,600),
+      S('pass', 455,600, 400,540),
+      S('pass', 400,540, 275,520)
+    ]
+  },
+  {
+    nom:'Pressing haut',
+    notes:"Déclencher quand la balle part sur un flanc adverse. L'attaquant oriente vers l'extérieur, les milieux coupent les lignes de passe, la défense monte d'un cran.",
+    shapes: ()=>[
+      S('run', 275,300, 290,200),
+      S('run', 400,540, 400,380),
+      S('run', 275,520, 275,400),
+      S('run', 150,540, 175,400),
+      S('run', 275,732, 275,620)
+    ]
+  },
+  {
+    nom:'Repli et bloc bas',
+    notes:"Balle perdue haut : personne ne poursuit seul. Tout le monde recule derrière la ligne des 23 m, on referme le centre et on laisse l'extérieur.",
+    shapes: ()=>[
+      S('run', 275,300, 275,480),
+      S('run', 275,520, 275,640),
+      S('run', 400,540, 385,650),
+      S('run', 150,540, 165,650),
+      S('run', 420,700, 400,760)
+    ]
+  }
+];
+
+function renderSeq(){
+  const d = state.seq;
+  document.getElementById('seq-lines').innerHTML = pitchLinesMarkup();
+  renderShapes(document.getElementById('seq-shapes'), d.shapes);
+  document.getElementById('seq-tokens').innerHTML = d.tokens.map(t=>{
+    const fill = t.team==='them' ? '#33403F' : (t.team==='gk' ? '#F2C230' : '#A80610');
+    const fg = t.team==='gk' ? '#221B00' : '#fff';
+    return `<g data-tid="${t.id}" style="cursor:grab">
+      <circle cx="${t.x}" cy="${t.y}" r="${SEQ_R}" fill="${fill}" stroke="#fff" stroke-width="2.5"/>
+      <text x="${t.x}" y="${t.y+5}" text-anchor="middle" font-size="14" fill="${fg}">${escapeHtml(t.label).slice(0,4)}</text>
+    </g>`;
+  }).join('');
+  const notes = document.getElementById('seq-notes');
+  if(document.activeElement !== notes) notes.value = d.notes || '';
+  const nom = document.getElementById('seq-name');
+  if(document.activeElement !== nom) nom.value = d.name || '';
+}
+
+document.querySelectorAll('#seq-modes button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    seqMode = b.dataset.smode;
+    document.querySelectorAll('#seq-modes button').forEach(x=>x.setAttribute('aria-pressed', String(x===b)));
+  });
+});
+document.getElementById('seq-notes').addEventListener('input', e=>{
+  state.seq.notes = e.target.value; save();
+});
+document.getElementById('seq-name').addEventListener('input', e=>{
+  state.seq.name = e.target.value.slice(0,40); save();
+});
+
+const seqBoard = document.getElementById('seq-board');
+let sdrag = null, stemp = null;
+
+seqBoard.addEventListener('pointerdown', e=>{
+  if(seqPlaying) return;
+  const d = state.seq;
+  const tok = e.target.closest('[data-tid]');
+  const sh = e.target.closest('[data-sid]');
+
+  if(seqMode==='erase'){
+    if(tok){ d.tokens = d.tokens.filter(t=>t.id!==tok.dataset.tid); save(); renderSeq(); }
+    else if(sh){ d.shapes = d.shapes.filter(s=>s.id!==sh.dataset.sid); save(); renderSeq(); }
+    return;
+  }
+  if(seqMode==='move'){
+    if(!tok) return;
+    const t = d.tokens.find(x=>x.id===tok.dataset.tid);
+    const p = svgPoint(seqBoard, e);
+    sdrag = {t, dx:t.x-p.x, dy:t.y-p.y, moved:false};
+    seqBoard.setPointerCapture(e.pointerId);
+    return;
+  }
+  const p = svgPoint(seqBoard, e);
+  sdrag = {line:{x1:p.x, y1:p.y, x2:p.x, y2:p.y}};
+  stemp = startTempLine(seqBoard, 'seq-shapes', seqMode, p);
+  seqBoard.setPointerCapture(e.pointerId);
+});
+seqBoard.addEventListener('pointermove', e=>{
+  if(!sdrag) return;
+  const p = svgPoint(seqBoard, e);
+  if(sdrag.t){
+    sdrag.t.x = Math.max(SEQ_R, Math.min(550-SEQ_R, p.x+sdrag.dx));
+    sdrag.t.y = Math.max(SEQ_R, Math.min(914-SEQ_R, p.y+sdrag.dy));
+    sdrag.moved = true;
+    renderSeq();
+  }else if(stemp){
+    sdrag.line.x2 = p.x; sdrag.line.y2 = p.y;
+    stemp.setAttribute('x2', p.x); stemp.setAttribute('y2', p.y);
+  }
+});
+seqBoard.addEventListener('pointerup', ()=>{
+  if(!sdrag) return;
+  const d = state.seq;
+  if(sdrag.t){
+    if(!sdrag.moved){
+      const v = prompt('Nom du jeton. Laisse vide pour le supprimer.', sdrag.t.label);
+      if(v!==null){
+        if(v.trim()==='') d.tokens = d.tokens.filter(x=>x.id!==sdrag.t.id);
+        else sdrag.t.label = v.trim();
+      }
+    }
+    save();
+  }else if(sdrag.line){
+    const L = sdrag.line;
+    if(Math.hypot(L.x2-L.x1, L.y2-L.y1) > 20) d.shapes.push({id:uid(), type:seqMode, ...L});
+    save();
+  }
+  sdrag = null; stemp = null; renderSeq();
+});
+
+document.getElementById('btn-seq-model').addEventListener('click', ()=>{
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Modèles de séquence';
+  body.innerHTML = '';
+
+  const titre = t =>{
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.style.cssText = 'padding:8px 10px 2px;font-weight:700;text-transform:uppercase;font-size:11.5px;letter-spacing:.05em';
+    p.textContent = t;
+    body.appendChild(p);
+  };
+  const appliquer = (nom, tokens, shapes, notes)=>{
+    if(state.seq.shapes.length && !confirm('Remplacer la séquence affichée ?')) return;
+    state.seq.tokens = JSON.parse(JSON.stringify(tokens));
+    state.seq.shapes = JSON.parse(JSON.stringify(shapes));
+    state.seq.notes = notes || '';
+    state.seq.name = nom;
+    save(); picker.close(); render();
+  };
+
+  titre('Modèles de base');
+  SEQ_MODELES.forEach(m=>{
+    const b = document.createElement('button');
+    b.textContent = m.nom;
+    b.addEventListener('click', ()=>appliquer(m.nom, baseTokens(), m.shapes(), m.notes));
+    body.appendChild(b);
+  });
+
+  titre('Mes modèles');
+  if(!state.seqModels.length){
+    body.insertAdjacentHTML('beforeend', '<p class="empty">Aucun pour l\'instant. Compose une séquence puis « Ajouter aux modèles ».</p>');
+  }
+  state.seqModels.forEach(m=>{
+    const b = document.createElement('button');
+    b.textContent = m.name + '   ' + (m.date || '');
+    b.addEventListener('click', ()=>appliquer(m.name, m.tokens, m.shapes, m.notes));
+    body.appendChild(b);
+
+    const del = document.createElement('button');
+    del.textContent = '↳ supprimer ce modèle';
+    del.style.cssText = 'font-size:13px;font-weight:600;color:var(--ink-soft);padding-top:2px';
+    del.addEventListener('click', ()=>{
+      if(!confirm('Supprimer « ' + m.name + ' » de tes modèles ?')) return;
+      state.seqModels = state.seqModels.filter(x=>x.id!==m.id);
+      save(); picker.close(); flash('Modèle supprimé');
+    });
+    body.appendChild(del);
+  });
+  picker.showModal();
+});
+
+document.getElementById('btn-seq-addmodel').addEventListener('click', ()=>{
+  const d = state.seq;
+  if(!d.tokens.length && !d.shapes.length) return flash('La séquence est vide');
+
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Enregistrer cette séquence';
+  body.innerHTML = '';
+
+  const contenu = ()=>({
+    date: new Date().toLocaleDateString('fr-BE', {day:'2-digit', month:'2-digit'}),
+    tokens: JSON.parse(JSON.stringify(d.tokens)),
+    shapes: JSON.parse(JSON.stringify(d.shapes)),
+    notes: d.notes || ''
+  });
+
+  const neuf = document.createElement('button');
+  neuf.textContent = '＋  Nouveau modèle';
+  neuf.style.fontWeight = '700';
+  neuf.addEventListener('click', ()=>{
+    const nom = (d.name || '').trim();
+    if(!nom){
+      picker.close();
+      flash('Donne un nom à la séquence');
+      return document.getElementById('seq-name').focus();
+    }
+    state.seqModels.push(Object.assign({id: uid(), name: nom}, contenu()));
+    save(); picker.close(); flash('Ajouté à tes modèles');
+  });
+  body.appendChild(neuf);
+
+  if(state.seqModels.length){
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.style.cssText = 'padding:10px 10px 2px;font-weight:700;text-transform:uppercase;font-size:11.5px;letter-spacing:.05em';
+    p.textContent = 'Mettre à jour un modèle existant';
+    body.appendChild(p);
+  }
+  state.seqModels.forEach(m=>{
+    const b = document.createElement('button');
+    b.textContent = m.name + '   ' + (m.date || '');
+    b.addEventListener('click', ()=>{
+      if(!confirm('Remplacer « ' + m.name + ' » par la séquence affichée ?')) return;
+      Object.assign(m, contenu());        // le nom du modèle est conservé
+      d.name = m.name;
+      save(); picker.close(); render(); flash('Modèle mis à jour');
+    });
+    body.appendChild(b);
+  });
+  picker.showModal();
+});
+
+/* --- lecture animée --- */
+let seqPlaying = false, seqRAF = null;
+
+function playSeq(){
+  if(seqPlaying){ seqPlaying = false; return; }
+  const d = state.seq;
+  if(!d.shapes.length) return flash('Aucun tracé à jouer');
+
+  const depart = JSON.parse(JSON.stringify(d.tokens));
+  const anim = document.getElementById('seq-anim');
+  const btn = document.getElementById('btn-seq-play');
+  anim.innerHTML = '';
+  seqPlaying = true;
+  btn.textContent = 'Arrêter';
+
+  let ball = null, i = 0;
+  const finish = ()=>{
+    seqPlaying = false;
+    if(seqRAF) cancelAnimationFrame(seqRAF);
+    btn.textContent = 'Lecture';
+    d.tokens = depart;
+    anim.innerHTML = '';
+    renderSeq();
+  };
+  const proche = (x,y)=>{
+    let best = null, bd = 120;
+    d.tokens.forEach(t=>{ const dd = Math.hypot(t.x-x, t.y-y); if(dd<bd){ bd=dd; best=t; } });
+    return best;
+  };
+  const step = ()=>{
+    if(!seqPlaying) return finish();
+    if(i >= d.shapes.length){ setTimeout(finish, 900); return; }
+    const s = d.shapes[i++];
+    const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
+    const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.4));
+
+    const movers = [];
+    if(s.type==='run' || s.type==='conduite'){
+      const t = proche(s.x1, s.y1);
+      if(t){
+        const g = document.querySelector('#seq-tokens [data-tid="'+t.id+'"]');
+        const c = g && g.querySelector('circle'), lb = g && g.querySelector('text');
+        movers.push((x,y)=>{
+          t.x = x; t.y = y;
+          if(c){ c.setAttribute('cx',x); c.setAttribute('cy',y); }
+          if(lb){ lb.setAttribute('x',x); lb.setAttribute('y',y+5); }
+        });
+      }
+    }
+    if(s.type !== 'run'){
+      if(!ball) ball = makeBall(anim, s.x1, s.y1);
+      movers.push(ball);
+      ball(s.x1, s.y1);
+    }
+    const t0 = performance.now();
+    const frame = now =>{
+      if(!seqPlaying) return finish();
+      const k = Math.min(1, (now-t0)/dur);
+      const e = k<0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+      const x = s.x1 + (s.x2-s.x1)*e, y = s.y1 + (s.y2-s.y1)*e;
+      movers.forEach(m=>m(x,y));
+      if(k<1) seqRAF = requestAnimationFrame(frame);
+      else step();
+    };
+    seqRAF = requestAnimationFrame(frame);
+  };
+  step();
+}
+document.getElementById('btn-seq-play').addEventListener('click', playSeq);
+
 /* ==================================================================
    Partage entre coaches
 ================================================================== */
@@ -1828,7 +2237,7 @@ function renderShare(){
     const li = document.createElement('li');
     const j = document.createElement('div');
     j.className = 'jersey';
-    j.textContent = pub.type==='pc' ? 'PC' : (pub.type==='ref' ? 'Réf' : 'C');
+    j.textContent = pub.type==='pc' ? 'PC' : (pub.type==='ref' ? 'Réf' : pub.type==='seq' ? 'Séq' : 'C');
     li.appendChild(j);
 
     const n = document.createElement('div');
@@ -1920,6 +2329,16 @@ function loadPublication(pub){
   const body = document.getElementById('picker-body');
   head.textContent = 'Charger « ' + pub.nom + ' » dans…';
   body.innerHTML = '';
+  if(pub.type==='seq'){
+    if(confirm('Remplacer ta séquence par « ' + pub.nom + ' » ?')){
+      state.seq.tokens = JSON.parse(JSON.stringify(pub.data.tokens || []));
+      state.seq.shapes = JSON.parse(JSON.stringify(pub.data.shapes || []));
+      state.seq.notes  = pub.data.notes || '';
+      state.seq.name = pub.nom;
+      view = 'seq'; save(); render(); flash('Copié chez toi');
+    }
+    return;
+  }
   if(pub.type==='ref'){
     if(confirm('Remplacer ton terrain de référence par « ' + pub.nom + ' » ?')){
       if(pub.data.marks){
@@ -1985,6 +2404,7 @@ function render(){
   if(view==='players') renderPlayers();
   if(view==='compos')  (compoIndex===5 ? renderCompare() : compoIndex===6 ? renderReference() : renderCompo());
   if(view==='pc')      renderPC();
+  if(view==='seq')     renderSeq();
   if(view==='share')   renderShare();
   document.getElementById('hdr-sub').textContent =
     presentPlayers().length + ' présents sur ' + state.players.length + ' joueurs';

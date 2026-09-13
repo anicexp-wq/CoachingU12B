@@ -424,6 +424,9 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
       </div>
       <ul class="players" id="pub-list"></ul>
       <p class="empty" id="pub-empty" hidden>Rien de publié pour l'instant. Appuie sur Actualiser.</p>
+      <div class="rowbar" style="margin:12px 0 0">
+        <button class="btn danger" id="btn-clean">Retirer mes publications</button>
+      </div>
     </div>
 
     <div class="card">
@@ -2655,6 +2658,60 @@ function loadPublication(pub){
   });
   picker.showModal();
 }
+
+document.getElementById('btn-clean').addEventListener('click', ()=>{
+  const miennes = state.pubs.filter(p=>p.auteurId === state.me.id);
+  if(!miennes.length) return flash('Tu n\'as rien publié');
+
+  const head = document.getElementById('picker-head');
+  const body = document.getElementById('picker-body');
+  head.textContent = 'Retirer mes publications';
+  body.innerHTML = '';
+
+  const parType = [
+    {t:'compo', l:'les compositions'},
+    {t:'pc',    l:'les schémas PC'},
+    {t:'seq',   l:'les séquences'},
+    {t:'ref',   l:'les postes de référence'}
+  ];
+
+  const nettoyer = async liste=>{
+    if(!liste.length) return flash('Rien à retirer');
+    if(!confirm('Retirer ' + liste.length + (liste.length>1 ? ' publications' : ' publication')
+                + ' de la bibliothèque ? Les copies déjà chargées par les autres restent chez eux.')) return;
+    picker.close();
+    flash('Nettoyage…');
+    let ok = 0;
+    for(const pub of liste){
+      try{
+        const res = await apiPost({action:'retirer', id:pub.id, auteurId:state.me.id});
+        if(res.ok || res.aveugle) ok++;
+      }catch(e){}
+    }
+    state.pubs = state.pubs.filter(p=>!liste.some(x=>x.id===p.id));
+    save(); render();
+    flash(ok + (ok>1 ? ' publications retirées' : ' publication retirée'));
+  };
+
+  const tout = document.createElement('button');
+  tout.textContent = 'Tout retirer   ' + miennes.length + (miennes.length>1 ? ' publications' : ' publication');
+  tout.style.cssText = 'font-weight:700;color:var(--club-dark)';
+  tout.addEventListener('click', ()=>nettoyer(miennes));
+  body.appendChild(tout);
+
+  parType.forEach(({t,l})=>{
+    const liste = miennes.filter(p=>p.type===t);
+    if(!liste.length) return;
+    const b = document.createElement('button');
+    b.textContent = 'Retirer ' + l + '   ' + liste.length;
+    b.addEventListener('click', ()=>nettoyer(liste));
+    body.appendChild(b);
+  });
+
+  body.insertAdjacentHTML('beforeend',
+    '<p class="empty">Seules tes publications sont concernées. Celles des autres coaches ne peuvent pas être retirées depuis ton téléphone.</p>');
+  picker.showModal();
+});
 
 async function retirerPublication(pub){
   if(!confirm('Retirer « ' + pub.nom + ' » de la bibliothèque ?')) return;

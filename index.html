@@ -145,6 +145,13 @@ li.present .switch::after{transform:translateX(21px)}
 .pitch.drawing .overlay{pointer-events:auto}
 .pitch.drawing .slot{pointer-events:none}
 .ghost{position:fixed;z-index:99;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.step{display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid var(--stroke)}
+.step:last-child{border-bottom:0}
+.step .num{width:26px;height:26px;flex:none;border-radius:8px;background:var(--page);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--ink-soft)}
+.step .lbl2{flex:1;font-size:14px;font-weight:600}
+.step .sync{font-size:11.5px;color:var(--ink-soft);font-weight:600}
+.step button{border:1px solid var(--stroke);background:var(--surface);border-radius:8px;padding:5px 9px;font-size:13px;font-weight:700}
+.step button.on{background:var(--club-dark);border-color:var(--club-dark);color:#fff}
 .zone-row{padding:10px 0;border-bottom:1px solid var(--stroke)}
 .zone-row:last-of-type{border-bottom:0}
 .zone-row h3{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--ink-soft);letter-spacing:.02em}
@@ -387,6 +394,7 @@ dialog::backdrop{background:rgba(10,25,20,.5)}
         <button id="btn-seq-publish">Publier</button>
       </div>
       <p class="muted" style="margin:10px 0 0">Nous attaquons vers le haut. Touche un jeton pour le renommer, glisse-le pour le déplacer.</p>
+      <div id="seq-steps" style="margin-top:12px"></div>
     </div>
     <div class="card">
       <div class="rowbar"><h2>Consignes</h2></div>
@@ -1830,78 +1838,181 @@ function baseTokens(){
   EUX.forEach(([l,x,y])=>t.push({id:uid(), label:l, team:'them', x, y}));
   return t;
 }
-function miroir(tokens){
-  return tokens.map(t=>Object.assign({}, t, {x: 550 - t.x, label: t.label.replace('G','♦').replace('D','G').replace('♦','D')}));
+/* variante de la formation de base : {LABEL: [x, y, nouveauLabel]} */
+function tk(mods){
+  const t = baseTokens();
+  Object.keys(mods||{}).forEach(l=>{
+    const o = t.find(x=>x.label===l);
+    if(!o) return;
+    o.x = mods[l][0]; o.y = mods[l][1];
+    if(mods[l][2]) o.label = mods[l][2];
+  });
+  return t;
 }
-function S(type, x1, y1, x2, y2){ return {id:uid(), type, x1, y1, x2, y2}; }
+/* sync = true : ce mouvement est joué en même temps que le précédent */
+function S(type, x1, y1, x2, y2, sync){
+  return {id:uid(), type, x1, y1, x2, y2, sync: !!sync};
+}
 
 const SEQ_MODELES = [
   {
     nom:'Attaque par le flanc droit',
-    notes:"Fixer au centre pour écarter le bloc, servir le flanc droit dans la course, appel du buteur au premier poteau.",
+    tokens: ()=>tk({MD:[430,380,'AD']}),
+    notes:"Fixer au centre, servir l'ailier dans sa course. Le défenseur adverse glisse pour couvrir et son arrière vient marquer au poteau : le centre doit partir avant qu'ils ne soient replacés, et trouver un joueur DANS le cercle — hors du cercle, le but ne compte pas.",
     shapes: ()=>[
-      S('pass', 275,520, 400,540),
-      S('conduite', 400,540, 450,330),
-      S('run', 275,300, 310,200),
-      S('pass', 450,330, 310,200),
-      S('tir', 310,200, 275,80)
+      S('pass', 275,520, 430,380),
+      S('conduite', 430,380, 445,215),
+      S('run', 390,380, 440,300, true),
+      S('run', 275,300, 300,110, true),
+      S('pass', 445,215, 300,110),
+      S('run', 400,200, 332,112, true),
+      S('tir', 300,110, 275,20),
+      S('run', 275,60, 292,72, true)
     ]
   },
   {
     nom:'Attaque par le flanc gauche',
-    notes:"Même principe côté gauche. Le milieu central décale, l'ailier prend la ligne, centre en retrait.",
+    tokens: ()=>tk({MG:[120,380,'AG']}),
+    notes:"Même principe côté gauche. L'ailier prend la ligne, le centre part en retrait vers la pointe du cercle plutôt que vers le gardien, qui sort au premier ballon piqué.",
     shapes: ()=>[
-      S('pass', 275,520, 150,540),
-      S('conduite', 150,540, 100,330),
-      S('run', 275,300, 240,200),
-      S('pass', 100,330, 240,200),
-      S('tir', 240,200, 275,80)
+      S('pass', 275,520, 120,380),
+      S('conduite', 120,380, 105,215),
+      S('run', 160,380, 110,300, true),
+      S('run', 275,300, 250,110, true),
+      S('pass', 105,215, 250,110),
+      S('run', 150,200, 218,112, true),
+      S('tir', 250,110, 275,20),
+      S('run', 275,60, 258,72, true)
     ]
   },
   {
     nom:'Changement de côté par l\'arrière',
-    notes:"Quand le flanc est bouché, revenir par la défense et renverser. Le bloc adverse doit courir, l'espace s'ouvre de l'autre côté.",
+    tokens: ()=>tk({MD:[430,330,'AD']}),
+    notes:"Le flanc droit est bouché : l'attaquant remet en arrière plutôt que de forcer. Les adversaires suivent la balle et glissent tous du même côté — c'est ce déplacement qui ouvre l'espace à gauche.",
     shapes: ()=>[
+      S('pass', 430,330, 420,700),
+      S('run', 390,380, 415,520, true),
       S('pass', 420,700, 275,732),
+      S('run', 275,610, 300,690, true),
       S('pass', 275,732, 130,700),
+      S('run', 300,690, 200,690, true),
       S('pass', 130,700, 150,540),
-      S('conduite', 150,540, 140,390),
-      S('pass', 140,390, 275,300)
+      S('conduite', 150,540, 130,380),
+      S('run', 160,380, 175,300, true),
+      S('pass', 130,380, 275,300)
     ]
   },
   {
     nom:'Relance du gardien',
-    notes:"Sortie courte sur le côté, le latéral conduit pour attirer, puis passe dans le dos du premier rideau.",
+    notes:"Sortie courte sur le côté pendant que l'attaquant adverse vient presser. Le défenseur conduit pour l'attirer, puis passe dans son dos. Jamais de passe qui traverse devant son propre but.",
     shapes: ()=>[
       S('pass', 275,862, 420,700),
+      S('run', 275,610, 370,650, true),
       S('conduite', 420,700, 455,600),
+      S('run', 370,650, 430,620, true),
       S('pass', 455,600, 400,540),
+      S('run', 390,380, 400,470, true),
       S('pass', 400,540, 275,520)
     ]
   },
   {
     nom:'Pressing haut',
-    notes:"Déclencher quand la balle part sur un flanc adverse. L'attaquant oriente vers l'extérieur, les milieux coupent les lignes de passe, la défense monte d'un cran.",
+    notes:"Déclencher quand la balle part sur un flanc adverse. Tout le monde monte ensemble : l'attaquant oriente vers l'extérieur, les milieux coupent les lignes de passe. L'adversaire n'a plus que le retour au gardien.",
     shapes: ()=>[
-      S('run', 275,300, 290,200),
-      S('run', 400,540, 400,380),
-      S('run', 275,520, 275,400),
-      S('run', 150,540, 175,400),
-      S('run', 275,732, 275,620)
+      S('pass', 275,180, 150,200),
+      S('run', 275,300, 225,235, true),
+      S('run', 150,540, 172,335, true),
+      S('run', 275,520, 248,400, true),
+      S('run', 400,540, 392,420, true),
+      S('pass', 150,200, 275,60),
+      S('run', 225,235, 205,140, true)
     ]
   },
   {
     nom:'Repli et bloc bas',
-    notes:"Balle perdue haut : personne ne poursuit seul. Tout le monde recule derrière la ligne des 23 m, on referme le centre et on laisse l'extérieur.",
+    notes:"Balle perdue haut : personne ne poursuit seul pendant que le porteur adverse avance. Tout le monde recule ensemble derrière la ligne des 23 m, on referme l'axe et on laisse l'extérieur.",
     shapes: ()=>[
-      S('run', 275,300, 275,480),
-      S('run', 275,520, 275,640),
-      S('run', 400,540, 385,650),
-      S('run', 150,540, 165,650),
-      S('run', 420,700, 400,760)
+      S('conduite', 275,400, 275,540),
+      S('run', 275,300, 275,480, true),
+      S('run', 275,520, 268,645, true),
+      S('run', 400,540, 385,650, true),
+      S('run', 150,540, 165,650, true),
+      S('pass', 275,540, 160,560),
+      S('run', 130,700, 150,620, true)
     ]
   }
 ];
+
+/* Regroupe les mouvements : ceux marqués sync rejoignent le temps précédent. */
+function seqGroupes(shapes){
+  const g = [];
+  shapes.forEach((s,i)=>{
+    if(i===0 || !s.sync) g.push([s]);
+    else g[g.length-1].push(s);
+  });
+  return g;
+}
+
+function renderSteps(){
+  const wrap = document.getElementById('seq-steps');
+  const d = state.seq;
+  wrap.innerHTML = '';
+  if(!d.shapes.length){
+    wrap.innerHTML = '<p class="muted">Les mouvements tracés apparaîtront ici, dans l\'ordre de lecture.</p>';
+    return;
+  }
+  let temps = 0;
+  d.shapes.forEach((s,i)=>{
+    if(i===0 || !s.sync) temps++;
+    const row = document.createElement('div');
+    row.className = 'step';
+
+    const n = document.createElement('span');
+    n.className = 'num';
+    n.textContent = temps;
+    row.appendChild(n);
+
+    const l = document.createElement('span');
+    l.className = 'lbl2';
+    l.textContent = (TRACE[s.type] || TRACE.run).label;
+    if(i>0 && s.sync) l.innerHTML += ' <span class="sync">· en même temps</span>';
+    row.appendChild(l);
+
+    const mk = (txt, actif, fn)=>{
+      const b = document.createElement('button');
+      b.textContent = txt;
+      if(actif) b.className = 'on';
+      b.addEventListener('click', fn);
+      row.appendChild(b);
+      return b;
+    };
+    mk('↑', false, ()=>{
+      if(i===0) return;
+      const t = d.shapes[i-1]; d.shapes[i-1] = d.shapes[i]; d.shapes[i] = t;
+      if(!d.shapes[0].sync === false) d.shapes[0].sync = false;
+      d.shapes[0].sync = false;
+      save(); renderSeq();
+    });
+    mk('↓', false, ()=>{
+      if(i >= d.shapes.length-1) return;
+      const t = d.shapes[i+1]; d.shapes[i+1] = d.shapes[i]; d.shapes[i] = t;
+      d.shapes[0].sync = false;
+      save(); renderSeq();
+    });
+    if(i>0) mk('⇉', !!s.sync, ()=>{ s.sync = !s.sync; save(); renderSeq(); });
+    mk('✕', false, ()=>{
+      d.shapes = d.shapes.filter(x=>x.id!==s.id);
+      if(d.shapes.length) d.shapes[0].sync = false;
+      save(); renderSeq();
+    });
+    wrap.appendChild(row);
+  });
+  const aide = document.createElement('p');
+  aide.className = 'muted';
+  aide.style.marginTop = '8px';
+  aide.textContent = '↑ ↓ changent l\'ordre, ⇉ joue le mouvement en même temps que celui du dessus, ✕ le supprime.';
+  wrap.appendChild(aide);
+}
 
 function renderSeq(){
   const d = state.seq;
@@ -1919,6 +2030,7 @@ function renderSeq(){
   if(document.activeElement !== notes) notes.value = d.notes || '';
   const nom = document.getElementById('seq-name');
   if(document.activeElement !== nom) nom.value = d.name || '';
+  renderSteps();
 }
 
 document.querySelectorAll('#seq-modes button').forEach(b=>{
@@ -1988,7 +2100,7 @@ seqBoard.addEventListener('pointerup', ()=>{
     save();
   }else if(sdrag.line){
     const L = sdrag.line;
-    if(Math.hypot(L.x2-L.x1, L.y2-L.y1) > 20) d.shapes.push({id:uid(), type:seqMode, ...L});
+    if(Math.hypot(L.x2-L.x1, L.y2-L.y1) > 20) d.shapes.push({id:uid(), type:seqMode, sync:false, ...L});
     save();
   }
   sdrag = null; stemp = null; renderSeq();
@@ -2020,7 +2132,7 @@ document.getElementById('btn-seq-model').addEventListener('click', ()=>{
   SEQ_MODELES.forEach(m=>{
     const b = document.createElement('button');
     b.textContent = m.nom;
-    b.addEventListener('click', ()=>appliquer(m.nom, baseTokens(), m.shapes(), m.notes));
+    b.addEventListener('click', ()=>appliquer(m.nom, m.tokens ? m.tokens() : baseTokens(), m.shapes(), m.notes));
     body.appendChild(b);
   });
 
@@ -2128,39 +2240,48 @@ function playSeq(){
     d.tokens.forEach(t=>{ const dd = Math.hypot(t.x-x, t.y-y); if(dd<bd){ bd=dd; best=t; } });
     return best;
   };
+  const groupes = seqGroupes(d.shapes);
   const step = ()=>{
     if(!seqPlaying) return finish();
-    if(i >= d.shapes.length){ setTimeout(finish, 900); return; }
-    const s = d.shapes[i++];
-    const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
-    const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.4));
+    if(i >= groupes.length){ setTimeout(finish, 900); return; }
+    const groupe = groupes[i++];
 
-    const movers = [];
-    if(s.type==='run' || s.type==='conduite'){
-      const t = proche(s.x1, s.y1);
-      if(t){
-        const g = document.querySelector('#seq-tokens [data-tid="'+t.id+'"]');
-        const c = g && g.querySelector('circle'), lb = g && g.querySelector('text');
-        movers.push((x,y)=>{
-          t.x = x; t.y = y;
-          if(c){ c.setAttribute('cx',x); c.setAttribute('cy',y); }
-          if(lb){ lb.setAttribute('x',x); lb.setAttribute('y',y+5); }
-        });
+    const pistes = groupe.map(s=>{
+      const len = Math.hypot(s.x2-s.x1, s.y2-s.y1);
+      const dur = s.type==='tir' ? Math.max(260, len*1.6) : Math.min(1800, Math.max(400, len*3.4));
+      const movers = [];
+      if(s.type==='run' || s.type==='conduite'){
+        const t = proche(s.x1, s.y1);
+        if(t){
+          const g = document.querySelector('#seq-tokens [data-tid="'+t.id+'"]');
+          const c = g && g.querySelector('circle'), lb = g && g.querySelector('text');
+          movers.push((x,y)=>{
+            t.x = x; t.y = y;
+            if(c){ c.setAttribute('cx',x); c.setAttribute('cy',y); }
+            if(lb){ lb.setAttribute('x',x); lb.setAttribute('y',y+5); }
+          });
+        }
       }
-    }
-    if(s.type !== 'run'){
-      if(!ball) ball = makeBall(anim, s.x1, s.y1);
-      movers.push(ball);
-      ball(s.x1, s.y1);
-    }
+      if(s.type !== 'run'){
+        if(!ball) ball = makeBall(anim, s.x1, s.y1);
+        movers.push(ball);
+        ball(s.x1, s.y1);
+      }
+      return {s, dur, movers};
+    });
+
+    const total = Math.max.apply(null, pistes.map(p=>p.dur));
     const t0 = performance.now();
     const frame = now =>{
       if(!seqPlaying) return finish();
-      const k = Math.min(1, (now-t0)/dur);
-      const e = k<0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
-      const x = s.x1 + (s.x2-s.x1)*e, y = s.y1 + (s.y2-s.y1)*e;
-      movers.forEach(m=>m(x,y));
-      if(k<1) seqRAF = requestAnimationFrame(frame);
+      const ecoule = now - t0;
+      pistes.forEach(p=>{
+        const k = Math.min(1, ecoule / p.dur);
+        const e = k<0.5 ? 2*k*k : 1 - Math.pow(-2*k+2, 2)/2;
+        const x = p.s.x1 + (p.s.x2-p.s.x1)*e, y = p.s.y1 + (p.s.y2-p.s.y1)*e;
+        p.movers.forEach(m=>m(x,y));
+      });
+      if(ecoule < total) seqRAF = requestAnimationFrame(frame);
       else step();
     };
     seqRAF = requestAnimationFrame(frame);
